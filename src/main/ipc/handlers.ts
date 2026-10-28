@@ -16,7 +16,19 @@ import {
 } from '@shared/schemas'
 import { summarizeMonth } from '@shared/summary'
 import type { IpcResult, UpdateStatus } from '@shared/types'
+import { SYNC_TABLES } from '@shared/syncModel'
 import { checkForUpdates, getUpdateStatus, installUpdate } from '../updater'
+import {
+  applyRemote,
+  bindOwner,
+  countDirty,
+  getDirty,
+  getState,
+  listConflicts,
+  markClean,
+  resolveConflict,
+  setState
+} from '../db/syncRepo'
 import { createCategory, listCategories, listPaymentMethods, NotFoundError } from '../db/catalogRepo'
 import type { Db } from '../db/connection'
 import {
@@ -85,6 +97,32 @@ export function registerIpcHandlers(db: Db, dataPath: string): void {
     ensureRecurringForMonth(db, month)
     return summarizeMonth(month, listMonth(db, month, today()))
   })
+
+  const TableSchema = z.enum(SYNC_TABLES)
+  const Stamp = z.string().max(40)
+  handle(IPC.syncBind, z.string().min(1).max(128), (uid) => bindOwner(db, uid))
+  handle(IPC.syncGetCursor, TableSchema, (t) => getState(db, `cursor:${t}`) ?? '')
+  handle(IPC.syncSetCursor, z.strictObject({ table: TableSchema, value: Stamp }), ({ table, value }) =>
+    setState(db, `cursor:${table}`, value)
+  )
+  handle(IPC.syncGetDirty, z.number().int().min(1).max(500), (limit) => getDirty(db, limit))
+  handle(IPC.syncCountDirty, NoInput, () => countDirty(db))
+  handle(
+    IPC.syncMarkClean,
+    z.array(z.strictObject({ table: TableSchema, id: z.string().max(64), updatedAt: Stamp })).max(500),
+    (items) => markClean(db, items)
+  )
+  handle(
+    IPC.syncApplyRemote,
+    z.strictObject({ table: TableSchema, docs: z.array(z.unknown()).max(500) }),
+    ({ table, docs }) => applyRemote(db, table, docs) // each document is validated again inside
+  )
+  handle(IPC.syncConflicts, NoInput, () => listConflicts(db))
+  handle(
+    IPC.syncResolveConflict,
+    z.strictObject({ id: z.number().int().positive(), action: z.enum(['ack', 'useOther']) }),
+    ({ id, action }) => resolveConflict(db, id, action)
+  )
 
   handle(IPC.updateGetStatus, NoInput, () => getUpdateStatus())
   ipcMain.handle(IPC.updateCheck, async (): Promise<IpcResult<UpdateStatus>> => ({ ok: true, data: await checkForUpdates() }))

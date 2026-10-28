@@ -1,6 +1,7 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { recurringDateFor } from '@shared/dates'
 import type { RecurringInput } from '@shared/schemas'
+import { GENERATED_UPDATED_AT } from '@shared/syncModel'
 import type { EntryKind, RecurringRule } from '@shared/types'
 import { assertReferencesExist, NotFoundError } from './catalogRepo'
 import { inTransaction, nowIso, type Db } from './connection'
@@ -17,6 +18,15 @@ interface RecurringRow {
   end_month: string | null
   note: string
   is_active: number
+}
+
+/** UUID (v5-style) derived from rule + month, so every device generates the same id for the same bill. */
+export function recurringItemId(ruleId: string, month: string): string {
+  const h = createHash('sha1').update(`${ruleId}:${month}`).digest()
+  h[6] = ((h[6] as number) & 0x0f) | 0x50
+  h[8] = ((h[8] as number) & 0x3f) | 0x80
+  const x = h.subarray(0, 16).toString('hex')
+  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`
 }
 
 function toRule(r: RecurringRow): RecurringRule {
@@ -171,6 +181,8 @@ export function ensureRecurringForMonth(db: Db, month: string): number {
     .all(month, month) as unknown as RecurringRow[]
   if (rules.length === 0) return 0
 
+  // Deterministic id + "generated" timestamp: two devices produce the identical row, and any real
+  // edit made elsewhere (paid, deleted, changed) always wins over it when syncing.
   const insert = db.prepare(
     `INSERT OR IGNORE INTO transactions
        (id, kind, title, amount_satang, category_id, payment_method_id, txn_date, due_date, is_paid,
@@ -183,7 +195,7 @@ export function ensureRecurringForMonth(db: Db, month: string): number {
     for (const r of rules) {
       const date = recurringDateFor(month, r.day_of_month)
       const result = insert.run(
-        randomUUID(),
+        recurringItemId(r.id, month),
         r.kind,
         r.title,
         r.amount_satang,
@@ -195,7 +207,7 @@ export function ensureRecurringForMonth(db: Db, month: string): number {
         r.id,
         month,
         now,
-        now
+        GENERATED_UPDATED_AT
       )
       created += Number(result.changes)
     }

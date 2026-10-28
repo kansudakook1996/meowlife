@@ -14,8 +14,23 @@ import {
   signOut,
   type Auth
 } from 'firebase/auth'
-import { doc, getDoc, getFirestore, setDoc, type Firestore } from 'firebase/firestore'
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocsFromServer,
+  getFirestore,
+  limit as limitTo,
+  orderBy,
+  query,
+  setDoc,
+  where,
+  writeBatch,
+  type Firestore
+} from 'firebase/firestore'
 import { firebaseErrorCode } from '@shared/firebaseErrors'
+import type { SyncRemote } from '@shared/syncEngine'
+import type { SyncDoc } from '@shared/syncModel'
 import { firebaseConfig } from './firebaseConfig'
 
 export interface AccountUser {
@@ -55,6 +70,46 @@ export async function resetPassword(email: string): Promise<void> {
 
 export async function logOut(): Promise<void> {
   await signOut(services().auth)
+}
+
+const NETWORK_TIMEOUT_MS = 20_000
+
+/** Offline Firestore calls can wait forever; turn that into an error so sync can retry later. */
+function withTimeout<T>(work: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject({ code: 'deadline-exceeded' }), NETWORK_TIMEOUT_MS)
+    work.then(
+      (v) => {
+        window.clearTimeout(timer)
+        resolve(v)
+      },
+      (e: unknown) => {
+        window.clearTimeout(timer)
+        reject(e)
+      }
+    )
+  })
+}
+
+const PUSH_CHUNK = 400 // Firestore allows 500 writes per batch
+
+/** Firestore side of the sync: users/{uid}/{table}/{id}. Security Rules restrict it to the owner. */
+export function remoteFor(uid: string): SyncRemote {
+  const { db } = services()
+  return {
+    async pull(table, sinceIso, limit) {
+      const q = query(collection(db, 'users', uid, table), where('updatedAt', '>=', sinceIso), orderBy('updatedAt'), limitTo(limit))
+      const snap = await withTimeout(getDocsFromServer(q))
+      return snap.docs.map((d) => d.data() as SyncDoc)
+    },
+    async push(table, docs) {
+      for (let i = 0; i < docs.length; i += PUSH_CHUNK) {
+        const batch = writeBatch(db)
+        for (const d of docs.slice(i, i + PUSH_CHUNK)) batch.set(doc(db, 'users', uid, table, String(d['id'])), d)
+        await withTimeout(batch.commit())
+      }
+    }
+  }
 }
 
 export type CheckState = 'ok' | 'fail' | 'warn'

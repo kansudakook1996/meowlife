@@ -88,6 +88,34 @@ const migrations: Migration[] = [
       )
       DEFAULT_PAYMENT_METHODS.forEach((p, i) => insertMethod.run(p.id, p.name, i, now, now))
     }
+  },
+  {
+    version: 2,
+    up(db) {
+      // base_updated_at = the version of the row last known to be identical on the server.
+      // It lets sync tell "someone else changed this" apart from "this is my own earlier push".
+      for (const table of ['categories', 'payment_methods', 'recurring_rules', 'transactions']) {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN base_updated_at TEXT`)
+        db.exec(`UPDATE ${table} SET base_updated_at = updated_at WHERE dirty = 0`)
+      }
+      db.exec(`
+        CREATE TABLE sync_state (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+
+        CREATE TABLE sync_conflicts (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          table_name TEXT NOT NULL,
+          row_id TEXT NOT NULL,
+          local_json TEXT NOT NULL,
+          remote_json TEXT NOT NULL,
+          winner TEXT NOT NULL CHECK (winner IN ('local', 'remote')),
+          created_at TEXT NOT NULL,
+          resolved_at TEXT
+        );
+      `)
+    }
   }
 ]
 
@@ -98,7 +126,8 @@ export function getSchemaVersion(db: DatabaseSync): number {
   return row?.user_version ?? 0
 }
 
-export function migrate(db: DatabaseSync): void {
+/** Bring the schema up to `target` (default: latest). Older targets exist for upgrade tests. */
+export function migrate(db: DatabaseSync, target: number = LATEST_SCHEMA_VERSION): void {
   const current = getSchemaVersion(db)
   if (current > LATEST_SCHEMA_VERSION) {
     throw new Error(
@@ -106,7 +135,7 @@ export function migrate(db: DatabaseSync): void {
     )
   }
   for (const migration of migrations) {
-    if (migration.version <= current) continue
+    if (migration.version <= current || migration.version > target) continue
     db.exec('BEGIN IMMEDIATE')
     try {
       migration.up(db)

@@ -7,7 +7,9 @@ import { Modal } from './components/Modal'
 import { TransactionForm } from './components/TransactionForm'
 import { meow, unwrap } from './lib/api'
 import { PortalProvider, usePortal, type EditorRequest } from './lib/portal'
+import { SyncPill } from './components/SyncPill'
 import { useLoad } from './lib/useLoad'
+import { SyncProvider } from './lib/useSync'
 import { useUpdateStatus } from './lib/useUpdateStatus'
 import { DashboardPage } from './pages/DashboardPage'
 import { RecurringPage } from './pages/RecurringPage'
@@ -47,7 +49,8 @@ export function App(): React.JSX.Element {
   const refresh = useCallback(() => setDataVersion((v) => v + 1), [])
   const openEditor = useCallback((req: EditorRequest) => setEditor(req), [])
 
-  const { data: catalog, error: catalogError } = useLoad<Catalog>('catalog', async () => ({
+  // Reload categories/payment methods after local or synced changes (data from other devices).
+  const { data: catalog, error: catalogError } = useLoad<Catalog>(`catalog:${dataVersion}`, async () => ({
     categories: await unwrap(meow().categories.list()),
     paymentMethods: await unwrap(meow().paymentMethods.list())
   }))
@@ -81,6 +84,7 @@ export function App(): React.JSX.Element {
   if (!catalog) return <div className="loading">กำลังเปิด MeowLife…</div>
 
   return (
+    <SyncProvider dataVersion={dataVersion} onRemoteChange={refresh}>
     <PortalProvider
       month={month}
       setMonth={setMonth}
@@ -120,6 +124,7 @@ export function App(): React.JSX.Element {
               <span className="soon">เร็ว ๆ นี้</span>
             </button>
           ))}
+          <SyncPill />
         </nav>
 
         <main className="main">
@@ -133,6 +138,7 @@ export function App(): React.JSX.Element {
 
       <TransactionEditor request={editor} onClose={() => setEditor(null)} />
     </PortalProvider>
+    </SyncProvider>
   )
 }
 

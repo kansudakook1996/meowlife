@@ -16,6 +16,8 @@ test('settings shows the online account card', async () => {
     page.on('console', (m) => {
       if (m.type() === 'error' && /Content Security Policy/i.test(m.text())) cspErrors.push(m.text())
     })
+    // The sidebar always shows the sync state (no one is signed in during E2E).
+    await expect(page.getByRole('status').filter({ hasText: 'ซิงก์: ยังไม่ได้เข้าสู่ระบบ' })).toBeVisible({ timeout: 15_000 })
     await page.getByRole('navigation').getByRole('button', { name: 'ตั้งค่า' }).click()
     await expect(page.getByRole('heading', { name: /บัญชีออนไลน์/ })).toBeVisible()
     await expect(page.getByRole('button', { name: 'เข้าสู่ระบบ' })).toBeVisible({ timeout: 15_000 })

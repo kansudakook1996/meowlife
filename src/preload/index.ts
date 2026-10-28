@@ -28,6 +28,17 @@ const bridge: MeowBridge = {
     remove: (id) => ipcRenderer.invoke(IPC.recurringRemove, id)
   },
   summary: { month: (month) => ipcRenderer.invoke(IPC.summaryMonth, month) },
+  sync: {
+    bind: (uid) => ipcRenderer.invoke(IPC.syncBind, uid),
+    getCursor: (table) => ipcRenderer.invoke(IPC.syncGetCursor, table),
+    setCursor: (table, value) => ipcRenderer.invoke(IPC.syncSetCursor, { table, value }),
+    getDirty: (limit) => ipcRenderer.invoke(IPC.syncGetDirty, limit),
+    countDirty: () => ipcRenderer.invoke(IPC.syncCountDirty),
+    markClean: (items) => ipcRenderer.invoke(IPC.syncMarkClean, items),
+    applyRemote: (table, docs) => ipcRenderer.invoke(IPC.syncApplyRemote, { table, docs }),
+    conflicts: () => ipcRenderer.invoke(IPC.syncConflicts),
+    resolveConflict: (id, action) => ipcRenderer.invoke(IPC.syncResolveConflict, { id, action })
+  },
   updates: {
     getStatus: () => ipcRenderer.invoke(IPC.updateGetStatus),
     check: () => ipcRenderer.invoke(IPC.updateCheck),

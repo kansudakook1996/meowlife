@@ -1,10 +1,10 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it } from 'vitest'
 import { backupBeforeMigration, openDatabase } from './connection'
-import { getSchemaVersion, LATEST_SCHEMA_VERSION } from './migrations'
+import { getSchemaVersion, LATEST_SCHEMA_VERSION, migrate } from './migrations'
 
 const dirs: string[] = []
 function tempDir(): string {
@@ -15,6 +15,41 @@ function tempDir(): string {
 
 afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true })
+})
+
+describe('upgrade from an installed v1 database', () => {
+  it('backs up first, keeps every row, and adds the sync columns', () => {
+    const dir = tempDir()
+    const file = join(dir, 'meowlife.db')
+    const old = new DatabaseSync(file)
+    migrate(old, 1)
+    old
+      .prepare(
+        `INSERT INTO transactions (id, kind, title, amount_satang, txn_date, created_at, updated_at, dirty)
+         VALUES ('t-dirty', 'expense', 'ยังไม่ส่ง', 100, '2026-10-28', 'a', 'a', 1), ('t-clean', 'expense', 'ส่งแล้ว', 200, '2026-10-28', 'b', 'b', 0)`
+      )
+      .run()
+    expect(getSchemaVersion(old)).toBe(1)
+    old.close()
+
+    const db = openDatabase(file)
+    expect(getSchemaVersion(db)).toBe(LATEST_SCHEMA_VERSION)
+    const rows = db.prepare('SELECT id, base_updated_at FROM transactions ORDER BY id').all()
+    expect(rows).toEqual([
+      { id: 't-clean', base_updated_at: 'b' },
+      { id: 't-dirty', base_updated_at: null }
+    ])
+    expect(db.prepare('SELECT COUNT(*) AS n FROM sync_conflicts').get()).toEqual({ n: 0 })
+    const backups = readdirSync(join(dir, 'backups'))
+    expect(backups).toHaveLength(1)
+    expect(backups[0]).toMatch(/^pre-migration-v1-/)
+    db.close()
+
+    const copy = new DatabaseSync(join(dir, 'backups', backups[0]!))
+    expect(getSchemaVersion(copy)).toBe(1)
+    expect(copy.prepare('SELECT COUNT(*) AS n FROM transactions').get()).toEqual({ n: 2 })
+    copy.close()
+  })
 })
 
 describe('openDatabase', () => {

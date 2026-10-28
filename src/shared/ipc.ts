@@ -9,6 +9,7 @@ import type {
   UpdateStatus
 } from './types'
 import type { CategoryInput, RecurringInput, TransactionInput, TransactionQuery } from './schemas'
+import type { ApplyResult, SyncConflictView, SyncDoc, SyncTable } from './syncModel'
 
 /** The only IPC channels the renderer may call. Preload exposes exactly these. */
 export const IPC = {
@@ -27,6 +28,15 @@ export const IPC = {
   recurringUpdate: 'recurring:update',
   recurringRemove: 'recurring:remove',
   summaryMonth: 'summary:month',
+  syncBind: 'sync:bind',
+  syncGetCursor: 'sync:getCursor',
+  syncSetCursor: 'sync:setCursor',
+  syncGetDirty: 'sync:getDirty',
+  syncCountDirty: 'sync:countDirty',
+  syncMarkClean: 'sync:markClean',
+  syncApplyRemote: 'sync:applyRemote',
+  syncConflicts: 'sync:conflicts',
+  syncResolveConflict: 'sync:resolveConflict',
   updateGetStatus: 'update:getStatus',
   updateCheck: 'update:check',
   updateInstall: 'update:install'
@@ -62,6 +72,18 @@ export interface MeowBridge {
     remove(id: string): R<void>
   }
   summary: { month(month: string): R<MonthSummary> }
+  /** Local half of the sync; the renderer talks to Firestore and hands data to these calls. */
+  sync: {
+    bind(uid: string): R<{ mismatch: boolean }>
+    getCursor(table: SyncTable): R<string>
+    setCursor(table: SyncTable, value: string): R<void>
+    getDirty(limit: number): R<Array<{ table: SyncTable; doc: SyncDoc }>>
+    countDirty(): R<number>
+    markClean(items: Array<{ table: SyncTable; id: string; updatedAt: string }>): R<void>
+    applyRemote(table: SyncTable, docs: SyncDoc[]): R<ApplyResult>
+    conflicts(): R<SyncConflictView[]>
+    resolveConflict(id: number, action: 'ack' | 'useOther'): R<void>
+  }
   updates: {
     getStatus(): R<UpdateStatus>
     check(): R<UpdateStatus>
