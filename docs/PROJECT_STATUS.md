@@ -31,4 +31,4 @@
 1. **ภาพ/ไฟล์ Excel เดิม** — ยังไม่ได้รับ (ต้องใช้ออกแบบการนำเข้าใน M2)
 2. **GitHub account + repo** — ทำตาม `GITHUB_RELEASE_TH.md` ขั้นที่ 1–3
 3. **Firebase project** — ทำตาม `FIREBASE_SETUP_TH.md` ขั้นที่ 1–5
-4. **อีเมลใน commit** — commit แรกใช้ Gmail ของเจ้าของ ต้องเปลี่ยนเป็น noreply ก่อน push ขึ้น Public repo
+4. ~~อีเมลใน commit~~ — ✅ เปลี่ยนเป็นอีเมล noreply ของ GitHub แล้ว (2026-10-28) พร้อม push ได้

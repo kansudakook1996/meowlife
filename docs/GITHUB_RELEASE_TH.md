@@ -1,6 +1,7 @@
 # คู่มือ GitHub, Release และ Auto-update
 
-> **สถานะ (2026-10-28)**: มี Git ในเครื่องและ commit แรกแล้ว / ยังไม่มี GitHub Repository /
+> **สถานะ (2026-10-28)**: มี Git ในเครื่องและ commit แรกแล้ว / ขั้นที่ 3 (อีเมล noreply) ทำแล้ว /
+> ยังไม่ได้เชื่อม GitHub Repository (ยังไม่มี remote) /
 > ไฟล์ workflow `.github/workflows/ci.yml` และ `release.yml` เขียนไว้แล้วแต่**ยังไม่เคยรันบน GitHub** /
 > โค้ด Auto-update ในแอปยังไม่ได้เขียน (Milestone 5)
 
@@ -37,8 +38,10 @@
    ```bash
    git config user.email "12345678+yourname@users.noreply.github.com"
    ```
-4. ⚠️ commit ที่ทำไปแล้วในเครื่องใช้อีเมล Gmail ของคุณ ถ้าจะ push ขึ้น Public repo บอกผมก่อน
-   ผมจะช่วยเปลี่ยนอีเมลใน commit เก่าก่อน push (ทำได้เพราะยังไม่เคย push)
+4. ✅ ทำแล้ว (2026-10-28): ตั้งอีเมล noreply ให้ repo นี้ และเปลี่ยนอีเมลใน commit แรกที่ยังไม่เคย push
+   เป็น noreply ด้วย `git commit --amend --reset-author --no-edit` แล้ว
+   - ตรวจเองได้ด้วย `git log --format="%h %an <%ae>"` ต้องเห็นอีเมล `...@users.noreply.github.com`
+   - ⚠️ อย่าใช้วิธี amend กับ commit ที่ push ขึ้น GitHub ไปแล้ว (จะทำให้ประวัติไม่ตรงกับบน GitHub)
 
 ## ขั้นที่ 4 — เชื่อม Local Repository กับ GitHub แล้ว Push
 ```bash
