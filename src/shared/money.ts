@@ -26,6 +26,13 @@ function groupThousands(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
+let wordStyle = false
+
+/** Settings → how money looks: "฿1,234.50" (symbol) or "1,234.50 บาท" (word). */
+export function setMoneyStyle(style: 'symbol' | 'word'): void {
+  wordStyle = style === 'word'
+}
+
 /** 123450 → "฿1,234.50", -5000 → "-฿50.00" */
 export function formatSatang(satang: number): string {
   assertSafeSatang(satang)
@@ -33,7 +40,8 @@ export function formatSatang(satang: number): string {
   const abs = Math.abs(satang)
   const baht = Math.floor(abs / 100)
   const rest = abs % 100
-  return `${sign}฿${groupThousands(baht)}.${String(rest).padStart(2, '0')}`
+  const number = `${groupThousands(baht)}.${String(rest).padStart(2, '0')}`
+  return wordStyle ? `${sign}${number} บาท` : `${sign}฿${number}`
 }
 
 /** 123450 → "1234.50" (for putting back into an input field) */

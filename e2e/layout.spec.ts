@@ -24,7 +24,7 @@ test('pages fit at the minimum window size 900×600', async () => {
     await dialog.getByLabel('จ่ายเงินแล้ว').uncheck()
     await dialog.getByRole('button', { name: 'บันทึก' }).click()
 
-    for (const nav of ['ภาพรวม', 'รายการรับ-จ่าย', 'รายการประจำ', 'รายงาน', 'หมวดหมู่', 'ข้อมูลและสำรอง', 'ตั้งค่า']) {
+    for (const nav of ['ภาพรวม', 'รายการรับ-จ่าย', 'รายการประจำ', 'รายงาน', 'หมวดหมู่', 'ข้อมูลและสำรอง', 'ปฏิทิน', 'สิ่งที่ต้องทำ', 'บันทึกประจำวัน', 'เป้าหมาย', 'นิสัย', 'โน้ต', 'สถิติ', 'แมวคู่ใจ', 'ตั้งค่า']) {
       await page.getByRole('navigation').getByRole('button', { name: nav }).click()
       await page.waitForTimeout(200)
       const overflow = await page.evaluate(() => {

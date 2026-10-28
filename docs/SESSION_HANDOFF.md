@@ -1,5 +1,22 @@
 # Session Handoff
 
+## Session 3 — 2026-10-29 (Personal Portal → v0.3.0)
+
+### สิ่งที่ทำ
+- 6 ตารางใหม่ (migration 3) + ซิงก์/Rules/สำรอง ครบ; โมดูล: ปฏิทิน, งาน, บันทึก, เป้าหมาย, นิสัย, โน้ต, สถิติ, แจ้งเตือน, แมวคู่ใจ/Badge, ตั้งค่า
+- กติกากลางใน `shared/portalModel.ts`; IPC ชื่อช่อง `portal:<module>:<action>` (`portalHandlers.ts`)
+- ซิงก์ทีละตาราง (`syncEngine.ts`) + `isNetworkError`; แก้ toast บังปุ่ม (มุมขวาล่าง + `pointer-events: none`)
+
+### ข้อควรระวัง
+- **อย่าแก้ migration 1–3 ที่ปล่อยไปแล้ว** (เกือบพลาดครั้งหนึ่งในเซสชันนี้ แก้คืนทันที — ตรวจด้วย `git diff -- src/main/db/migrations.ts`)
+- เพิ่มตารางซิงก์ใหม่ต้องแก้พร้อมกัน: migration ใหม่, `syncModel.ts` (SYNC_TABLES/TABLE_COLUMNS/DOC_SCHEMAS), `firestore.rules`, `rules-test/` (appDocs), แล้ว Publish rules ก่อนปล่อยแอป
+- `recurringItemId` ต้องใช้คีย์ `${ruleId}:${month}` เดิมเสมอ (มีรหัสนี้บนเครื่องที่ซิงก์แล้ว)
+- ตั้งค่าอยู่ใน `app_settings` (ไม่ซิงก์) — ถ้าจะให้ซิงก์ ต้องออกแบบเรื่องเครื่องละค่าที่ต่างกัน (เช่น ธีม) ก่อน
+
+### เริ่ม Session ถัดไป
+1. ถามผล: Publish rules, อัปเดต 0.2.0 → 0.3.0 (อัปเดตแบบเงียบ), แจ้งเตือน Windows, ซิงก์ข้ามเครื่อง
+2. ไอเดียต่อ: ลากวางในปฏิทิน, แจ้งเตือนตอนปิดแอป (ต้อง tray/startup), ซิงก์ตั้งค่า, ค้นหารวมทุกโมดูล, Code Signing
+
 ## Session 2 — 2026-10-29 (ซิงก์ Firestore + M2 + M3 → v0.2.0)
 
 ### สิ่งที่ทำ

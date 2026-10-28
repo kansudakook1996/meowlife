@@ -116,6 +116,83 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    version: 3,
+    up(db) {
+      // Personal Portal: tasks, journal, goals, habits, notes (all synced) + local settings (not synced).
+      db.exec(`
+        CREATE TABLE tasks (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          note TEXT NOT NULL DEFAULT '',
+          due_date TEXT,
+          repeat TEXT NOT NULL DEFAULT 'none' CHECK (repeat IN ('none', 'daily', 'weekly', 'monthly')),
+          is_done INTEGER NOT NULL DEFAULT 0 CHECK (is_done IN (0, 1)),
+          done_date TEXT,
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+        CREATE INDEX idx_tasks_due ON tasks (due_date) WHERE deleted_at IS NULL;
+
+        CREATE TABLE journal_entries (
+          id TEXT PRIMARY KEY,
+          entry_date TEXT NOT NULL,
+          mood INTEGER NOT NULL CHECK (mood BETWEEN 1 AND 5),
+          body TEXT NOT NULL DEFAULT '',
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+        CREATE INDEX idx_journal_date ON journal_entries (entry_date) WHERE deleted_at IS NULL;
+
+        CREATE TABLE goals (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          kind TEXT NOT NULL CHECK (kind IN ('life', 'saving')),
+          target_satang INTEGER CHECK (target_satang IS NULL OR target_satang > 0),
+          saved_satang INTEGER NOT NULL DEFAULT 0 CHECK (saved_satang >= 0),
+          progress INTEGER NOT NULL DEFAULT 0 CHECK (progress BETWEEN 0 AND 100),
+          target_date TEXT,
+          note TEXT NOT NULL DEFAULT '',
+          is_done INTEGER NOT NULL DEFAULT 0 CHECK (is_done IN (0, 1)),
+          done_date TEXT,
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+
+        CREATE TABLE habits (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          icon TEXT NOT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+
+        CREATE TABLE habit_checks (
+          id TEXT PRIMARY KEY,
+          habit_id TEXT NOT NULL REFERENCES habits(id),
+          check_date TEXT NOT NULL,
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+        CREATE INDEX idx_habit_checks ON habit_checks (habit_id, check_date) WHERE deleted_at IS NULL;
+
+        CREATE TABLE notes (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          body TEXT NOT NULL DEFAULT '',
+          is_pinned INTEGER NOT NULL DEFAULT 0 CHECK (is_pinned IN (0, 1)),
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+
+        CREATE TABLE app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `)
+    }
   }
 ]
 

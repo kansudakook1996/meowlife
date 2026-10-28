@@ -48,7 +48,7 @@ export function usePortal(): PortalContextValue {
   return ctx
 }
 
-const TOAST_MS = 8000
+const TOAST_MS = 7000
 
 export function PortalProvider(props: {
   month: string
@@ -71,7 +71,7 @@ export function PortalProvider(props: {
   const toast = useCallback<PortalContextValue['toast']>(
     (message, opts) => {
       const id = nextId.current++
-      setToasts((t) => [...t.slice(-2), { id, message, tone: opts?.tone ?? 'info', action: opts?.action }])
+      setToasts((t) => [...t.slice(-1), { id, message, tone: opts?.tone ?? 'info', action: opts?.action }])
       window.setTimeout(() => dismiss(id), TOAST_MS)
     },
     [dismiss]

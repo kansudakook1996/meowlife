@@ -83,21 +83,57 @@ export function diffDays(from: string, to: string): number {
   return Math.round((toUtcMs(to) - toUtcMs(from)) / DAY_MS)
 }
 
-const thaiDate = new Intl.DateTimeFormat('th-TH', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC'
-})
-const thaiMonth = new Intl.DateTimeFormat('th-TH', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+let useBuddhistYear = true
 
-/** "2026-10-28" → "28 ต.ค. 2569" (Buddhist year) */
+/** Settings → "แสดงปี": true = พ.ศ. (default), false = ค.ศ. */
+export function setBuddhistYear(value: boolean): void {
+  useBuddhistYear = value
+}
+
+const fmtDate = {
+  be: new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }),
+  ce: new Intl.DateTimeFormat('th-TH-u-ca-gregory', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+}
+const fmtMonth = {
+  be: new Intl.DateTimeFormat('th-TH', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+  ce: new Intl.DateTimeFormat('th-TH-u-ca-gregory', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
+/** "2026-10-28" → "28 ต.ค. 2569" (or 2026 when the setting is ค.ศ.) */
 export function formatThaiDate(date: string): string {
-  return thaiDate.format(new Date(toUtcMs(date)))
+  return fmtDate[useBuddhistYear ? 'be' : 'ce'].format(new Date(toUtcMs(date)))
 }
 
 /** "2026-10" → "ตุลาคม 2569" */
 export function formatThaiMonth(month: string): string {
   const [y, m] = parseMonth(month)
-  return thaiMonth.format(new Date(Date.UTC(y, m - 1, 1)))
+  return fmtMonth[useBuddhistYear ? 'be' : 'ce'].format(new Date(Date.UTC(y, m - 1, 1)))
+}
+
+/** Add (or subtract) whole days: addDays('2026-12-31', 1) → '2027-01-01'. */
+export function addDays(date: string, delta: number): string {
+  const d = new Date(toUtcMs(date) + delta * DAY_MS)
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`
+}
+
+/** 0 = Sunday … 6 = Saturday */
+export function weekdayOf(date: string): number {
+  return new Date(toUtcMs(date)).getUTCDay()
+}
+
+/** The Sunday on or before `date` (Thai calendars start the week on Sunday). */
+export function startOfWeek(date: string): string {
+  return addDays(date, -weekdayOf(date))
+}
+
+export const THAI_WEEKDAYS_SHORT = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'] as const
+export const THAI_WEEKDAYS_LONG = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'] as const
+
+/** Cells of a month grid (Sunday-first): leading/trailing days from neighbouring months fill whole weeks. */
+export function monthGrid(month: string): string[] {
+  const first = firstDayOfMonth(month)
+  const start = startOfWeek(first)
+  const last = addDays(firstDayOfNextMonth(month), -1)
+  const weeks = Math.ceil((diffDays(start, last) + 1) / 7)
+  return Array.from({ length: weeks * 7 }, (_, i) => addDays(start, i))
 }

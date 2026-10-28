@@ -41,6 +41,14 @@
 | Backup/Restore (ไฟล์เสีย/เวอร์ชันใหม่กว่าถูกปฏิเสธ, สำรองก่อนกู้, กู้ไฟล์ v1 ได้, สำรองรายวัน) | ✅ | `backupRepo.test.ts` + E2E `data.spec.ts` |
 | นำเข้า CSV/Excel (preview, ผิดพลาด, ซ้ำ, สร้างหมวด, ส่งออกแล้วนำเข้ากลับได้) | ✅ | `importMap.test.ts`, `spreadsheet.test.ts` (สร้างไฟล์ .xlsx จริงในเทสต์), `data.test.ts`, E2E; **ยังไม่ได้ลองกับไฟล์ Excel จริงของเจ้าของ** |
 | รายงาน/แนวโน้ม | ✅ | `trend.test.ts`, `data.test.ts › monthlyTotals`, E2E |
+| Portal: งาน (ทำซ้ำ/เลิกทำ), บันทึก (หนึ่งวันหนึ่งหน้า), เป้าหมายออม, นิสัย+streak, โน้ต, ตั้งค่า | ✅ | `portal.test.ts`, `portalModel.test.ts`, E2E `portal.spec.ts` |
+| Portal: ปฏิทิน (บิลตามวันครบกำหนด), แจ้งเตือน (นับ/วันละครั้ง/หลังเวลาที่ตั้ง), สถิติ, Badge (ได้แล้วแจ้งครั้งเดียว) | ✅ (ตรรกะ) | `portal.test.ts`, `reminders.test.ts` — **การแสดง toast ของ Windows จริงยังไม่ได้ตรวจ** |
+| Portal ซิงก์ 2 เครื่อง (ทุกตารางใหม่, journal วันเดียวกันสองเครื่อง = เอกสารเดียว) | ✅ (จำลอง + Emulator) | `portal.test.ts`, `rules-test/` |
+| Rules ของ 6 คอลเลกชันใหม่ (ชนิด/ความยาว/ฟิลด์เกิน/คนอื่น) | ✅ | `rules-test/firestore.rules.test.ts` (17 ข้อ) |
+| ซิงก์ทีละตาราง: ตารางที่ถูกปฏิเสธไม่ขวางตารางอื่น; ไม่มีเน็ต = หยุดทันที | ✅ | `sync.test.ts › one broken table` |
+| อัปเกรดฐานข้อมูล v2 → v3 (สำรองก่อน ข้อมูลครบ) | ✅ | `portal.test.ts › upgrade` |
+| เลย์เอาต์ 900×600 ครบทุกหน้า (15 หน้า) | ✅ | `layout.spec.ts` |
+| ธีม/ปี/เงิน คงอยู่หลังเปิดแอปใหม่ | ✅ | `portal.spec.ts › settings` |
 | Keyboard navigation | ⏳ บางส่วน | E2E ใช้ Ctrl+N และ Esc ผ่าน; ยังไม่ได้ไล่ Tab ทั้งหน้าด้วยมือ |
 | ข้อความไทยไม่ล้นที่ 900×600 | ✅ 2026-10-28 | `e2e/layout.spec.ts` ตรวจทุกหน้า + ภาพหน้าจอ |
 

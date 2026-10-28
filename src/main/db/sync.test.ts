@@ -17,6 +17,7 @@ import {
   resolveConflict,
   setState
 } from './syncRepo'
+import { createTask } from './portalRepo'
 import { createTransaction, listMonth, removeTransaction, setPaid, updateTransaction } from './transactionRepo'
 
 const FOOD = DEFAULT_CATEGORIES[0]!.id
@@ -28,7 +29,7 @@ function localFor(db: Db): SyncLocal {
     bind: async (uid) => bindOwner(db, uid),
     getCursor: async (t) => getState(db, `cursor:${t}`) ?? '',
     setCursor: async (t, v) => setState(db, `cursor:${t}`, v),
-    getDirty: async (l) => getDirty(db, l),
+    getDirty: async (l, ex) => getDirty(db, l, ex),
     markClean: async (items) => markClean(db, items),
     applyRemote: async (t, docs) => applyRemote(db, t, docs)
   }
@@ -155,6 +156,48 @@ describe('two devices', () => {
     updateTransaction(a, t.id, tx({ title: 'แก้ระหว่างส่ง' }), TODAY)
     markClean(a, [{ table: 'transactions', id: t.id, updatedAt: String(pushedDoc['updatedAt']) }])
     expect(countDirty(a)).toBe(1)
+  })
+})
+
+describe('one broken table does not block the others', () => {
+  it('keeps syncing everything else while a table is refused, then catches up once it is allowed', async () => {
+    const denied = new Set<SyncTable>(['tasks'])
+    const guarded: SyncRemote = {
+      pull: async (t, s, l) => {
+        if (denied.has(t)) throw Object.assign(new Error('denied'), { code: 'permission-denied' })
+        return remote.pull(t, s, l)
+      },
+      push: async (t, d) => {
+        if (denied.has(t)) throw Object.assign(new Error('denied'), { code: 'permission-denied' })
+        return remote.push(t, d)
+      }
+    }
+    createTransaction(a, tx({ title: 'รายการปกติ' }), TODAY)
+    createTask(a, { title: 'งานที่ซิงก์ไม่ได้ชั่วคราว', note: '', dueDate: null, repeat: 'none' })
+
+    await expect(runSync(localFor(a), guarded, UID)).rejects.toMatchObject({ code: 'permission-denied' })
+    expect(remote.store.get('transactions')?.size).toBe(1) // money data still went through
+    expect(countDirty(a)).toBe(1) // only the refused task is waiting
+
+    denied.clear()
+    const retry = await runSync(localFor(a), guarded, UID)
+    expect(retry.pushed).toBe(1)
+    expect(countDirty(a)).toBe(0)
+  })
+
+  it('stops at once when the network is down instead of trying every table', async () => {
+    let calls = 0
+    const down: SyncRemote = {
+      pull: async () => {
+        calls++
+        throw Object.assign(new Error('offline'), { code: 'unavailable' })
+      },
+      push: async () => {
+        calls++
+      }
+    }
+    await expect(runSync(localFor(a), down, UID)).rejects.toMatchObject({ code: 'unavailable' })
+    expect(calls).toBe(1)
   })
 })
 

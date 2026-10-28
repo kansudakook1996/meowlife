@@ -34,13 +34,16 @@
   --gray-300: #dccfbf;
 
   --bg: var(--cream);
+  --side-top: var(--yellow-300);
+  --side-mid: var(--yellow-100);
+  --side-bottom: var(--cream);
   --surface: #ffffff;
   --text: var(--brown);
   --text-muted: #6b5246;
   --border: #f0dfc6;
   --cat-white: #ffffff;
   --cat-white-shade: #e6d6c4;
-  --cat-orange: var(--orange-500);
+  --cat-orange: #e98a2e; /* the orange cat stays orange in every theme */
   --cat-orange-stripe: #d06a17;
   --cat-ear: #f7a6a6;
   --cat-eye: var(--brown);
@@ -57,4 +60,35 @@
 
   --font-display: 'IBM Plex Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
   --font-body: 'IBM Plex Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
+}
+
+/* Settings → ธีมสี. Only the accent scale and the sidebar/background change; status colours never do. */
+:root[data-theme='pink'] {
+  --orange-50: #ffeef5;
+  --orange-100: #ffd3e3;
+  --orange-300: #ff9cbd;
+  --orange-500: #e85d8f;
+  --orange-700: #b5365f;
+  --orange-800: #8f2a4a;
+  --cream: #fff1f6;
+  --bg: #fff1f6;
+  --side-top: #ffc2d6;
+  --side-mid: #ffe0ea;
+  --side-bottom: #fff1f6;
+  --border: #f3d3df;
+}
+:root[data-theme='blue'] {
+  --orange-50: #e8f3ff;
+  --orange-100: #cfe6ff;
+  --orange-300: #8cc4fb;
+  --orange-500: #3b8fe0;
+  --orange-700: #24609e;
+  --orange-800: #1b4a7a;
+  --cream: #eef6ff;
+  --bg: #eef6ff;
+  --side-top: #a9d4ff;
+  --side-mid: #d6ebff;
+  --side-bottom: #eef6ff;
+  --border: #cfe0f2;
+  --focus-color: #b5365f;
 }

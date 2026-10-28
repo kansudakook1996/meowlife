@@ -86,7 +86,7 @@ export function registerIpcHandlers(db: Db, dataPath: string): void {
   handle(IPC.syncSetCursor, z.strictObject({ table: TableSchema, value: Stamp }), ({ table, value }) =>
     setState(db, `cursor:${table}`, value)
   )
-  handle(IPC.syncGetDirty, z.number().int().min(1).max(500), (limit) => getDirty(db, limit))
+  handle(IPC.syncGetDirty, z.strictObject({ limit: z.number().int().min(1).max(500), exclude: z.array(TableSchema).max(20) }), ({ limit, exclude }) => getDirty(db, limit, exclude))
   handle(IPC.syncCountDirty, NoInput, () => countDirty(db))
   handle(
     IPC.syncMarkClean,

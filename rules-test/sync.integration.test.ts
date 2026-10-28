@@ -28,7 +28,7 @@ const localFor = (db: Db): SyncLocal => ({
   bind: async (uid) => bindOwner(db, uid),
   getCursor: async (t) => getState(db, `cursor:${t}`) ?? '',
   setCursor: async (t, v) => setState(db, `cursor:${t}`, v),
-  getDirty: async (l) => getDirty(db, l),
+  getDirty: async (l, ex) => getDirty(db, l, ex),
   markClean: async (items) => markClean(db, items),
   applyRemote: async (t, docs) => applyRemote(db, t, docs)
 })

@@ -5,6 +5,7 @@ import type { SyncStatus } from '@shared/syncModel'
 import { meow, unwrap } from './api'
 import type { AccountUser } from './firebase'
 import { isFirebaseConfigured } from './firebaseConfig'
+import { useSettings } from './settings'
 import { syncLocal } from './syncClient'
 
 type FirebaseModule = typeof import('./firebase')
@@ -42,6 +43,7 @@ export function SyncProvider(props: { dataVersion: number; onRemoteChange: () =>
   const [fb, setFb] = useState<FirebaseModule | null>(null)
   const [user, setUser] = useState<AccountUser | null>(null)
   const [status, setStatus] = useState<SyncStatus>(INITIAL)
+  const { autoSync } = useSettings().settings
 
   const running = useRef(false)
   const again = useRef(false)
@@ -136,26 +138,28 @@ export function SyncProvider(props: { dataVersion: number; onRemoteChange: () =>
 
   // On sign-in, then every 2 minutes.
   useEffect(() => {
-    if (!fb || !user) return
+    if (!fb || !user || !autoSync) return
     void run()
     const id = window.setInterval(() => void run(), PERIODIC_MS)
     return () => {
       window.clearInterval(id)
       window.clearTimeout(retryTimer.current)
     }
-  }, [fb, user, run])
+  }, [fb, user, run, autoSync])
 
   // After the user changes something locally.
   const firstVersion = useRef(dataVersion)
   useEffect(() => {
-    if (dataVersion === firstVersion.current || !user) return
+    if (dataVersion === firstVersion.current || !user || !autoSync) return
     const id = window.setTimeout(() => void run(), AFTER_EDIT_MS)
     return () => window.clearTimeout(id)
-  }, [dataVersion, user, run])
+  }, [dataVersion, user, run, autoSync])
 
   // Network coming and going.
   useEffect(() => {
-    const online = (): void => void run()
+    const online = (): void => {
+      if (autoSync) void run()
+    }
     const offline = (): void => setStatus((s) => (userRef.current ? { ...s, phase: 'offline', retryAt: null } : s))
     window.addEventListener('online', online)
     window.addEventListener('offline', offline)
@@ -163,7 +167,7 @@ export function SyncProvider(props: { dataVersion: number; onRemoteChange: () =>
       window.removeEventListener('online', online)
       window.removeEventListener('offline', offline)
     }
-  }, [run])
+  }, [run, autoSync])
 
   const syncNow = useCallback(() => {
     failures.current = 0

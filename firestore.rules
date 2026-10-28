@@ -68,6 +68,54 @@ service cloud.firestore {
         && strOrEmpty(d.note, 500) && strOrNull(d.recurringRuleId, 64) && strOrNull(d.recurringPeriod, 7);
     }
 
+    // ---- Personal Portal ----
+    function validTask(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'title', 'note', 'dueDate', 'repeat', 'isDone', 'doneDate'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.title, 80) && strOrEmpty(d.note, 500) && strOrNull(d.dueDate, 10)
+        && d.repeat in ['none', 'daily', 'weekly', 'monthly'] && whole(d.isDone, 0, 1) && strOrNull(d.doneDate, 10);
+    }
+
+    function validJournal(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'entryDate', 'mood', 'body'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.entryDate, 10) && whole(d.mood, 1, 5) && strOrEmpty(d.body, 5000);
+    }
+
+    function validGoal(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'title', 'kind', 'targetSatang', 'savedSatang', 'progress',
+                  'targetDate', 'note', 'isDone', 'doneDate'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.title, 80) && d.kind in ['life', 'saving']
+        && (d.targetSatang == null || whole(d.targetSatang, 1, 99999999999)) && whole(d.savedSatang, 0, 99999999999)
+        && whole(d.progress, 0, 100) && strOrNull(d.targetDate, 10) && strOrEmpty(d.note, 500)
+        && whole(d.isDone, 0, 1) && strOrNull(d.doneDate, 10);
+    }
+
+    function validHabit(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'name', 'icon', 'sortOrder'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.name, 40) && str(d.icon, 8) && whole(d.sortOrder, 0, 100000);
+    }
+
+    function validHabitCheck(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'habitId', 'checkDate'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.habitId, 64) && str(d.checkDate, 10);
+    }
+
+    function validNote(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'title', 'body', 'isPinned'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.title, 80) && strOrEmpty(d.body, 5000) && whole(d.isPinned, 0, 1);
+    }
+
     // Written by the in-app connection test button.
     function validMeta(d, docId) {
       let keys = ['id', 'updatedAt', 'kind'];
@@ -90,6 +138,30 @@ service cloud.firestore {
     match /users/{uid}/transactions/{docId} {
       allow read, delete: if isOwner(uid);
       allow create, update: if isOwner(uid) && validTransaction(request.resource.data, docId);
+    }
+    match /users/{uid}/tasks/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validTask(request.resource.data, docId);
+    }
+    match /users/{uid}/journal_entries/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validJournal(request.resource.data, docId);
+    }
+    match /users/{uid}/goals/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validGoal(request.resource.data, docId);
+    }
+    match /users/{uid}/habits/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validHabit(request.resource.data, docId);
+    }
+    match /users/{uid}/habit_checks/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validHabitCheck(request.resource.data, docId);
+    }
+    match /users/{uid}/notes/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validNote(request.resource.data, docId);
     }
     match /users/{uid}/meta/{docId} {
       allow read, delete: if isOwner(uid);

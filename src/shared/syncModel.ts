@@ -3,7 +3,18 @@ import { EntryKindSchema, IdSchema, IsoDateSchema, MonthSchema } from './schemas
 import { MAX_SATANG } from './money'
 
 /** Tables that sync to Firestore, in dependency order (categories before the rows that point at them). */
-export const SYNC_TABLES = ['categories', 'payment_methods', 'recurring_rules', 'transactions'] as const
+export const SYNC_TABLES = [
+  'categories',
+  'payment_methods',
+  'recurring_rules',
+  'transactions',
+  'tasks',
+  'journal_entries',
+  'goals',
+  'habits',
+  'habit_checks',
+  'notes'
+] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
 /** Firestore/IPC document: camelCase fields, ints for booleans, null for empty. */
@@ -48,7 +59,13 @@ export const TABLE_COLUMNS: Record<SyncTable, readonly string[]> = {
     'note',
     'recurring_rule_id',
     'recurring_period'
-  ]
+  ],
+  tasks: [...COMMON, 'title', 'note', 'due_date', 'repeat', 'is_done', 'done_date'],
+  journal_entries: [...COMMON, 'entry_date', 'mood', 'body'],
+  goals: [...COMMON, 'title', 'kind', 'target_satang', 'saved_satang', 'progress', 'target_date', 'note', 'is_done', 'done_date'],
+  habits: [...COMMON, 'name', 'icon', 'sort_order'],
+  habit_checks: [...COMMON, 'habit_id', 'check_date'],
+  notes: [...COMMON, 'title', 'body', 'is_pinned']
 }
 
 const toCamel = (s: string): string => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
@@ -121,6 +138,50 @@ export const DOC_SCHEMAS: Record<SyncTable, z.ZodType<SyncDoc>> = {
     note: z.string().max(500),
     recurringRuleId: IdSchema.nullable(),
     recurringPeriod: MonthSchema.nullable()
+  }) as unknown as z.ZodType<SyncDoc>,
+  tasks: z.strictObject({
+    ...base,
+    title: z.string().min(1).max(80),
+    note: z.string().max(500),
+    dueDate: IsoDateSchema.nullable(),
+    repeat: z.enum(['none', 'daily', 'weekly', 'monthly']),
+    isDone: Int01,
+    doneDate: IsoDateSchema.nullable()
+  }) as unknown as z.ZodType<SyncDoc>,
+  journal_entries: z.strictObject({
+    ...base,
+    entryDate: IsoDateSchema,
+    mood: z.number().int().min(1).max(5),
+    body: z.string().max(5000)
+  }) as unknown as z.ZodType<SyncDoc>,
+  goals: z.strictObject({
+    ...base,
+    title: z.string().min(1).max(80),
+    kind: z.enum(['life', 'saving']),
+    targetSatang: Amount.nullable(),
+    savedSatang: z.number().int().min(0).max(MAX_SATANG),
+    progress: z.number().int().min(0).max(100),
+    targetDate: IsoDateSchema.nullable(),
+    note: z.string().max(500),
+    isDone: Int01,
+    doneDate: IsoDateSchema.nullable()
+  }) as unknown as z.ZodType<SyncDoc>,
+  habits: z.strictObject({
+    ...base,
+    name: z.string().min(1).max(40),
+    icon: z.string().min(1).max(8),
+    sortOrder: z.number().int().min(0).max(100000)
+  }) as unknown as z.ZodType<SyncDoc>,
+  habit_checks: z.strictObject({
+    ...base,
+    habitId: IdSchema,
+    checkDate: IsoDateSchema
+  }) as unknown as z.ZodType<SyncDoc>,
+  notes: z.strictObject({
+    ...base,
+    title: z.string().min(1).max(80),
+    body: z.string().max(5000),
+    isPinned: Int01
   }) as unknown as z.ZodType<SyncDoc>
 }
 

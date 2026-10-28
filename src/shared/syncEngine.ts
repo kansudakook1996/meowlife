@@ -7,7 +7,8 @@ export interface SyncLocal {
   bind(uid: string): Promise<{ mismatch: boolean }>
   getCursor(table: SyncTable): Promise<string>
   setCursor(table: SyncTable, value: string): Promise<void>
-  getDirty(limit: number): Promise<Array<{ table: SyncTable; doc: SyncDoc }>>
+  /** Dirty rows (up to limit), skipping tables listed in exclude (tables that failed earlier in this run). */
+  getDirty(limit: number, exclude?: SyncTable[]): Promise<Array<{ table: SyncTable; doc: SyncDoc }>>
   markClean(items: Array<{ table: SyncTable; id: string; updatedAt: string }>): Promise<void>
   applyRemote(table: SyncTable, docs: SyncDoc[]): Promise<ApplyResult>
 }
@@ -52,41 +53,69 @@ export async function runSync(
 
   const result: SyncResult = { ...EMPTY }
 
+  // One broken table (e.g. Security Rules not yet updated for a new feature) must not stop the others:
+  // every table is tried, and the first error is thrown at the end so the UI shows it and retries.
+  const failedTables: SyncTable[] = []
+  let firstError: unknown = null
+  const fail = (table: SyncTable, error: unknown): void => {
+    // No connection: every other table would fail too (after a long wait each), so stop right away.
+    if (isNetworkError(error)) throw error
+    if (!failedTables.includes(table)) failedTables.push(table)
+    firstError ??= error
+  }
+
   for (const table of SYNC_TABLES) {
-    const cursor = await local.getCursor(table)
-    let since = cursor ? new Date(Date.parse(cursor) - overlapMs).toISOString() : ''
-    let maxSeen = cursor
-    let skipped = 0
-    for (let page = 0; page < 200; page++) {
-      const docs = await remote.pull(table, since, pageSize)
-      if (docs.length === 0) break
-      const applied = await local.applyRemote(table, docs)
-      result.pulled += docs.length
-      result.changed += applied.inserted + applied.updated
-      result.conflicts += applied.conflicts
-      skipped += applied.skipped
-      const last = String(docs[docs.length - 1]?.['updatedAt'] ?? '')
-      if (last > maxSeen) maxSeen = last
-      if (docs.length < pageSize || last === since) break
-      since = last
+    try {
+      const cursor = await local.getCursor(table)
+      let since = cursor ? new Date(Date.parse(cursor) - overlapMs).toISOString() : ''
+      let maxSeen = cursor
+      let skipped = 0
+      for (let page = 0; page < 200; page++) {
+        const docs = await remote.pull(table, since, pageSize)
+        if (docs.length === 0) break
+        const applied = await local.applyRemote(table, docs)
+        result.pulled += docs.length
+        result.changed += applied.inserted + applied.updated
+        result.conflicts += applied.conflicts
+        skipped += applied.skipped
+        const last = String(docs[docs.length - 1]?.['updatedAt'] ?? '')
+        if (last > maxSeen) maxSeen = last
+        if (docs.length < pageSize || last === since) break
+        since = last
+      }
+      result.skipped += skipped
+      // Do not move the cursor past documents we could not apply; they are retried next time.
+      if (skipped === 0 && maxSeen > cursor) await local.setCursor(table, maxSeen)
+    } catch (error) {
+      fail(table, error)
     }
-    result.skipped += skipped
-    // Do not move the cursor past documents we could not apply; they are retried next time.
-    if (skipped === 0 && maxSeen > cursor) await local.setCursor(table, maxSeen)
   }
 
   for (let round = 0; round < 50; round++) {
-    const dirty = await local.getDirty(pageSize)
+    const dirty = await local.getDirty(pageSize, failedTables)
     if (dirty.length === 0) break
     for (const table of SYNC_TABLES) {
       const docs = dirty.filter((d) => d.table === table).map((d) => d.doc)
       if (docs.length === 0) continue
-      await remote.push(table, docs)
-      await local.markClean(docs.map((d) => ({ table, id: String(d['id']), updatedAt: String(d['updatedAt']) })))
-      result.pushed += docs.length
+      try {
+        await remote.push(table, docs)
+        await local.markClean(docs.map((d) => ({ table, id: String(d['id']), updatedAt: String(d['updatedAt']) })))
+        result.pushed += docs.length
+      } catch (error) {
+        fail(table, error)
+      }
     }
   }
+  if (firstError !== null) throw firstError
   return result
+}
+
+const NETWORK_CODES = new Set(['unavailable', 'deadline-exceeded', 'cancelled', 'network-request-failed', 'auth/network-request-failed'])
+
+/** Errors that mean "cannot reach the server at all" (as opposed to one table being refused). */
+export function isNetworkError(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null && 'code' in error ? String((error as { code: unknown }).code) : ''
+  return NETWORK_CODES.has(code.replace(/^firestore\//, ''))
 }
 
 /** Automatic retry schedule after a failed sync: 5s, 15s, 1min, then every 5min. */

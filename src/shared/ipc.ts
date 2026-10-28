@@ -12,6 +12,7 @@ import type { CategoryInput, RecurringInput, TransactionInput, TransactionQuery 
 import type { BackupPick, ExportResult, ImportCommitResult, ImportPreview, ImportSession, RestoreResult } from './dataTools'
 import type { ImportMapping } from './importMap'
 import type { ApplyResult, SyncConflictView, SyncDoc, SyncTable } from './syncModel'
+import type { PortalBridge } from './portalApi'
 import type { MonthTotals } from './trend'
 
 /** The only IPC channels the renderer may call. Preload exposes exactly these. */
@@ -110,12 +111,14 @@ export interface MeowBridge {
     commitImport(token: string, mapping: ImportMapping, includeDuplicates: boolean, createMissing: boolean): R<ImportCommitResult>
     saveImportErrors(token: string, mapping: ImportMapping): R<{ path: string } | null>
   }
+  /** Personal Portal: tasks, journal, goals, habits, notes, calendar, reminders, insights, companion, settings. */
+  portal: PortalBridge
   /** Local half of the sync; the renderer talks to Firestore and hands data to these calls. */
   sync: {
     bind(uid: string): R<{ mismatch: boolean }>
     getCursor(table: SyncTable): R<string>
     setCursor(table: SyncTable, value: string): R<void>
-    getDirty(limit: number): R<Array<{ table: SyncTable; doc: SyncDoc }>>
+    getDirty(limit: number, exclude?: SyncTable[]): R<Array<{ table: SyncTable; doc: SyncDoc }>>
     countDirty(): R<number>
     markClean(items: Array<{ table: SyncTable; id: string; updatedAt: string }>): R<void>
     applyRemote(table: SyncTable, docs: SyncDoc[]): R<ApplyResult>

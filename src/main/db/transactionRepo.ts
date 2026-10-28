@@ -71,6 +71,28 @@ export function listMonth(db: Db, month: string, today: string): TransactionView
   return rows.map((r) => toView(r, today))
 }
 
+/** Unpaid expenses that are overdue or due on/before `upTo` (for reminders and the calendar). */
+export function listDueBills(db: Db, upTo: string, today: string): TransactionView[] {
+  const rows = db
+    .prepare(
+      `${SELECT_VIEW}
+       WHERE t.deleted_at IS NULL AND t.kind = 'expense' AND t.is_paid = 0 AND t.due_date IS NOT NULL AND t.due_date <= ?
+       ORDER BY t.due_date`
+    )
+    .all(upTo) as unknown as TransactionRow[]
+  return rows.map((r) => toView(r, today))
+}
+
+/** Items touching a date range: by transaction date (paid or undated) and by due date (unpaid bills). */
+export function listForRange(db: Db, from: string, to: string, today: string): { byDate: TransactionView[]; bills: TransactionView[] } {
+  const byDate = db
+    .prepare(`${SELECT_VIEW} WHERE t.deleted_at IS NULL AND t.txn_date >= ? AND t.txn_date <= ? ORDER BY t.txn_date LIMIT 1500`)
+    .all(from, to) as unknown as TransactionRow[]
+  const bills = db
+    .prepare(`${SELECT_VIEW} WHERE t.deleted_at IS NULL AND t.is_paid = 0 AND t.due_date >= ? AND t.due_date <= ? ORDER BY t.due_date LIMIT 1500`)
+    .all(from, to) as unknown as TransactionRow[]
+  return { byDate: byDate.map((r) => toView(r, today)), bills: bills.map((r) => toView(r, today)) }
+}
 /** Income/expense totals for `count` months ending at `endMonth` (one SQL query). */
 export function monthlyTotals(db: Db, endMonth: string, count: number): MonthTotals[] {
   const from = firstDayOfMonth(addMonths(endMonth, -(count - 1)))

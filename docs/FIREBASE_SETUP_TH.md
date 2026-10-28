@@ -103,6 +103,12 @@ Firestore Database → Rules → **Publish** อีกครั้ง (ไม่
 2. ถ้า Publish แล้วซิงก์ขึ้น `permission-denied` ให้บอกผมพร้อมข้อความที่แอปแสดง (ห้าม Publish กลับเป็น `if true`)
 3. ทดสอบกฎด้วยตัวเองบนเครื่องได้: ติดตั้ง Java 21 (`winget install Microsoft.OpenJDK.21`) แล้วรัน `npm run test:rules`
 
+## ขั้นที่ 5 (ครั้งที่ 4) — Publish Rules สำหรับ 0.3.0 (Personal Portal) ⚠️
+0.3.0 เพิ่ม 6 คอลเลกชัน (tasks, journal_entries, goals, habits, habit_checks, notes) ต้องคัดลอก `firestore.rules` ทั้งไฟล์ไป Publish ใหม่
+- ถ้ายังไม่ Publish: รายการรับ-จ่ายยังซิงก์ได้ปกติ แต่แถบสถานะจะขึ้น "ซิงก์ไม่สำเร็จ" พร้อมข้อความ permission-denied (ตารางที่ถูกปฏิเสธไม่ขวางตารางอื่น)
+  ข้อมูลโมดูลใหม่ยังอยู่ในเครื่องครบ และจะซิงก์เองหลัง Publish
+- ตรวจผล: ซิงก์แล้วดูที่ Firestore → Data → `users/{uid}/` ต้องเห็นคอลเลกชันใหม่ (เมื่อมีข้อมูล)
+
 ## ซิงก์ข้อมูลรายรับรายจ่าย (0.2.0)
 - เมื่อเข้าสู่ระบบ แอปสำเนาข้อมูลของคุณไปที่ `users/{uid}/transactions|categories|payment_methods|recurring_rules`
   ดูได้ที่ Firebase Console → Firestore → Data (ข้อมูลการเงินของคุณจะอยู่บนเซิร์ฟเวอร์ Google ในบัญชีของคุณเอง ไม่ได้เข้ารหัสฝั่งแอป)

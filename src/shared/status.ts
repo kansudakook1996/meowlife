@@ -3,6 +3,12 @@ import type { EntryKind, PaymentStatus } from './types'
 
 /** A bill due within this many days (including today) counts as "due soon". */
 export const DUE_SOON_DAYS = 3
+let dueSoonSetting = DUE_SOON_DAYS
+
+/** Settings → "ใกล้ครบกำหนดภายใน N วัน" (applies to every status computed afterwards). */
+export function setDueSoonDays(days: number): void {
+  dueSoonSetting = Math.min(14, Math.max(1, Math.round(days)))
+}
 
 export interface StatusInfo {
   status: PaymentStatus
@@ -12,7 +18,7 @@ export interface StatusInfo {
 export function computeStatus(
   item: { isPaid: boolean; dueDate: string | null },
   today: string,
-  dueSoonDays: number = DUE_SOON_DAYS
+  dueSoonDays: number = dueSoonSetting
 ): StatusInfo {
   if (item.isPaid) return { status: 'paid', daysUntilDue: null }
   if (!item.dueDate) return { status: 'unpaid', daysUntilDue: null }

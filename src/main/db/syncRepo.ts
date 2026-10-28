@@ -51,10 +51,11 @@ export function countDirty(db: Db): number {
   return total
 }
 
-export function getDirty(db: Db, limit: number): Array<{ table: SyncTable; doc: SyncDoc }> {
+export function getDirty(db: Db, limit: number, exclude: readonly SyncTable[] = []): Array<{ table: SyncTable; doc: SyncDoc }> {
   const out: Array<{ table: SyncTable; doc: SyncDoc }> = []
   for (const table of SYNC_TABLES) {
     if (out.length >= limit) break
+    if (exclude.includes(table)) continue
     const rows = db
       .prepare(`SELECT * FROM ${table} WHERE dirty = 1 ORDER BY updated_at LIMIT ?`)
       .all(limit - out.length) as Array<Record<string, unknown>>

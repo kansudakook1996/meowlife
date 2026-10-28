@@ -67,7 +67,7 @@ p {
 }
 
 .sidebar {
-  background: linear-gradient(180deg, var(--yellow-300), var(--yellow-100) 45%, var(--cream));
+  background: linear-gradient(180deg, var(--side-top), var(--side-mid) 45%, var(--side-bottom));
   padding: 20px 14px;
   display: flex;
   flex-direction: column;
@@ -594,15 +594,19 @@ dialog.modal::backdrop {
 /* ---------- Toast ---------- */
 .toast-area {
   position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 16px;
+  right: 16px;
+  max-width: min(420px, calc(100vw - 32px));
   display: flex;
   flex-direction: column;
+  align-items: flex-end;
   gap: 8px;
   z-index: 100;
+  /* Only the toast itself catches clicks; the empty area never blocks buttons underneath. */
+  pointer-events: none;
 }
 .toast {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -699,6 +703,8 @@ dialog.modal::backdrop {
 
 .sync-pill {
   margin-top: auto;
+  position: sticky;
+  bottom: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -735,4 +741,144 @@ dialog.modal::backdrop {
 .brand-logo {
   border-radius: 14px;
   box-shadow: var(--shadow);
+}
+
+/* ---------- Calendar ---------- */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.cal-head {
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 600;
+  padding: 4px 0;
+}
+.cal-cell {
+  min-height: 92px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  border: 2px solid transparent;
+  background: var(--surface);
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+.cal-cell:hover {
+  border-color: var(--orange-300);
+}
+.cal-cell[aria-pressed='true'] {
+  border-color: var(--primary);
+  background: var(--orange-50);
+}
+.cal-cell.outside {
+  background: transparent;
+  color: var(--text-muted);
+}
+.cal-cell.today .cal-num {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0 8px;
+  align-self: flex-start;
+}
+.cal-num {
+  font-weight: 600;
+}
+.cal-chip {
+  font-size: 0.78rem;
+  line-height: 1.3;
+  padding: 1px 6px;
+  border-radius: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--gray-100);
+}
+.cal-chip.bill {
+  background: var(--yellow-100);
+}
+.cal-chip.overdue {
+  background: var(--red-100);
+  color: var(--red-600);
+}
+.cal-chip.task {
+  background: var(--blue-100);
+}
+.cal-chip.done {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  align-items: start;
+}
+.cal-week > section {
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  min-height: 160px;
+}
+.reminder-card {
+  background: var(--yellow-100);
+  border: 2px solid var(--yellow-300);
+}
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.badge-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 4px;
+  padding: 14px 10px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.badge-card.locked {
+  background: var(--gray-100);
+  box-shadow: none;
+}
+.badge-card.locked .badge-emoji {
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+.badge-emoji {
+  font-size: 2.2rem;
+}
+.theme-swatch {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  vertical-align: -3px;
+  margin-right: 4px;
+  border: 1px solid var(--gray-300);
+}
+/* Short windows: keep the long menu usable. */
+@media (max-height: 760px) {
+  .nav-item {
+    padding: 5px 10px;
+  }
+  .nav-section {
+    margin: 6px 10px 2px;
+  }
+  .brand {
+    padding-bottom: 6px;
+  }
 }

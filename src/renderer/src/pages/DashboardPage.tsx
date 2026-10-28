@@ -3,6 +3,7 @@ import { formatSatang } from '@shared/money'
 import type { MonthSummary, TransactionView } from '@shared/types'
 import { CatMascot, type CatMood } from '../components/CatMascot'
 import { EmptyState } from '../components/EmptyState'
+import { RemindersCard } from '../components/RemindersCard'
 import { MonthPicker } from '../components/MonthPicker'
 import { TransactionRow } from '../components/TransactionRow'
 import { meow, unwrap } from '../lib/api'
@@ -59,6 +60,8 @@ export function DashboardPage(): React.JSX.Element {
             <CatMascot mood={cat.mood} size={96} />
             <p>{cat.text}</p>
           </section>
+
+          <RemindersCard />
 
           <section className="summary-grid" aria-label="สรุปยอด" aria-busy={loading}>
             <div className="summary-card summary-income">

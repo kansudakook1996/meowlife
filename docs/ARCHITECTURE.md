@@ -59,6 +59,15 @@
 - `src/renderer/src/components/AccountCard.tsx` — UI บัญชี + ปุ่มทดสอบการเชื่อมต่อ (`users/{uid}/meta/connection`)
 - Config จาก `.env` (`RENDERER_VITE_FIREBASE_*`, สาธารณะ) / CSP เปิดเฉพาะ 3 host ของ Google
 
+## Personal Portal (0.3.0)
+- ข้อมูล: `main/db/portalRepo.ts` (CRUD/สถิติ นิสัย), `portalQueries.ts` (ปฏิทิน, แจ้งเตือน, สถิติกิจกรรม, แมวคู่ใจ/Badge, ตั้งค่า)
+- กติกาล้วน ๆ (ทดสอบได้ไม่ต้องมี Electron): `shared/portalModel.ts` (สคีมา, งานทำซ้ำ, streak, Badge), `shared/reminders.ts`, `shared/calendar.ts`
+- IPC: ชื่อช่อง `portal:<โมดูล>:<การกระทำ>` ลงทะเบียนใน `ipc/portalHandlers.ts` (ตรวจด้วย zod ทุกช่อง) เปิดผ่าน `window.meow.portal` เท่านั้น
+- แจ้งเตือน: `main/reminders.ts` ตรวจทุก 30 นาทีขณะแอปเปิด → `Notification` ของ Electron วันละครั้งหลังเวลาที่ตั้ง (`shouldNotify`)
+- ตั้งค่า: เก็บใน `app_settings` (เฉพาะเครื่อง) · ธีมใช้ `data-theme` บน `<html>` (ปรับเฉพาะสเกลสีหลัก/พื้นหลัง ไม่แตะสีสถานะ) ·
+  `setBuddhistYear` / `setMoneyStyle` / `setDueSoonDays` เป็นตัวแปรโมดูลที่ UI/สถานะอ่านตอนเรียกใช้
+- ทุกตารางใหม่อยู่ใน `SYNC_TABLES` จึงซิงก์/สำรอง/กู้คืนอัตโนมัติ; ซิงก์ทำทีละตาราง ตารางที่ถูกปฏิเสธไม่ขวางตารางอื่น
+
 ## Sync (ทำแล้วใน 0.2.0 — ดูรายละเอียดกติกาใน DATA_MODEL.md §6)
 - Engine บริสุทธิ์: `src/shared/syncEngine.ts` (`runSync(local, remote, uid)`) ไม่รู้จัก Electron/Firebase จึงทดสอบด้วยเครื่องจำลอง 2 เครื่องได้
 - ฝั่งเครื่อง: `src/main/db/syncRepo.ts` ผ่าน IPC `sync:*` · ฝั่งคลาวด์: `remoteFor(uid)` ใน `lib/firebase.ts`

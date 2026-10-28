@@ -4,10 +4,17 @@ import { openDatabase, type Db } from './db/connection'
 import { ensureDailyBackup } from './db/backupRepo'
 import { registerDataHandlers } from './ipc/dataHandlers'
 import { registerIpcHandlers } from './ipc/handlers'
+import { registerPortalHandlers } from './ipc/portalHandlers'
+import { getSettings } from './db/portalQueries'
+import { startReminders } from './reminders'
+import { setDueSoonDays } from '@shared/status'
 import { startAutoUpdates } from './updater'
 
 // Keep development data apart from real data so testing never touches the user's records.
 // E2E tests point MEOWLIFE_USER_DATA at a throwaway folder. Ignored in the installed app.
+// Windows shows toast notifications under this id (must match appId in electron-builder.yml).
+app.setAppUserModelId('com.kansu.meowlife')
+
 if (!app.isPackaged) {
   app.setPath('userData', process.env['MEOWLIFE_USER_DATA'] || join(app.getPath('appData'), 'MeowLife-dev'))
 }
@@ -77,6 +84,8 @@ if (!app.requestSingleInstanceLock()) {
     }
     registerIpcHandlers(db, userData)
     registerDataHandlers(db, userData)
+    setDueSoonDays(getSettings(db).dueSoonDays)
+    registerPortalHandlers(db, (s) => setDueSoonDays(s.dueSoonDays))
     try {
       ensureDailyBackup(db, join(userData, 'backups'))
     } catch (error) {
@@ -84,6 +93,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     createWindow()
     startAutoUpdates()
+    startReminders(db)
   })
 
   app.on('window-all-closed', () => {

@@ -11,7 +11,16 @@ import { SyncPill } from './components/SyncPill'
 import { useLoad } from './lib/useLoad'
 import { SyncProvider } from './lib/useSync'
 import { useUpdateStatus } from './lib/useUpdateStatus'
+import { CalendarPage } from './pages/CalendarPage'
 import { CategoriesPage } from './pages/CategoriesPage'
+import { CompanionPage } from './pages/CompanionPage'
+import { GoalsPage } from './pages/GoalsPage'
+import { HabitsPage } from './pages/HabitsPage'
+import { InsightsPage } from './pages/InsightsPage'
+import { JournalPage } from './pages/JournalPage'
+import { NotesPage } from './pages/NotesPage'
+import { TasksPage } from './pages/TasksPage'
+import { useSettings } from './lib/settings'
 import { DashboardPage } from './pages/DashboardPage'
 import { DataPage } from './pages/DataPage'
 import { ReportsPage } from './pages/ReportsPage'
@@ -19,25 +28,26 @@ import { RecurringPage } from './pages/RecurringPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TransactionsPage } from './pages/TransactionsPage'
 
-type PageId = 'dashboard' | 'transactions' | 'recurring' | 'reports' | 'categories' | 'data' | 'settings'
+type PageId =
+  | 'dashboard' | 'transactions' | 'recurring' | 'reports' | 'categories' | 'data'
+  | 'calendar' | 'tasks' | 'journal' | 'goals' | 'habits' | 'notes' | 'insights' | 'companion' | 'settings'
 
-const NAV: Array<{ id: PageId; icon: string; label: string }> = [
+const NAV: Array<{ section?: string; id: PageId; icon: string; label: string }> = [
   { id: 'dashboard', icon: '🏠', label: 'ภาพรวม' },
-  { id: 'transactions', icon: '📒', label: 'รายการรับ-จ่าย' },
+  { section: 'การเงิน', id: 'transactions', icon: '📒', label: 'รายการรับ-จ่าย' },
   { id: 'recurring', icon: '🔁', label: 'รายการประจำ' },
   { id: 'reports', icon: '📈', label: 'รายงาน' },
   { id: 'categories', icon: '🏷️', label: 'หมวดหมู่' },
   { id: 'data', icon: '💾', label: 'ข้อมูลและสำรอง' },
+  { section: 'ชีวิตประจำวัน', id: 'calendar', icon: '📅', label: 'ปฏิทิน' },
+  { id: 'tasks', icon: '✅', label: 'สิ่งที่ต้องทำ' },
+  { id: 'journal', icon: '📔', label: 'บันทึกประจำวัน' },
+  { id: 'goals', icon: '🎯', label: 'เป้าหมาย' },
+  { id: 'habits', icon: '🌱', label: 'นิสัย' },
+  { id: 'notes', icon: '🗒️', label: 'โน้ต' },
+  { section: 'ภาพรวมชีวิต', id: 'insights', icon: '📊', label: 'สถิติ' },
+  { id: 'companion', icon: '🐱', label: 'แมวคู่ใจ' },
   { id: 'settings', icon: '⚙️', label: 'ตั้งค่า' }
-]
-
-const COMING_SOON = [
-  { icon: '📅', label: 'ปฏิทิน' },
-  { icon: '📔', label: 'บันทึกประจำวัน' },
-  { icon: '✅', label: 'สิ่งที่ต้องทำ' },
-  { icon: '🎯', label: 'เป้าหมาย' },
-  { icon: '🌱', label: 'นิสัย' },
-  { icon: '🗒️', label: 'โน้ต' }
 ]
 
 interface Catalog {
@@ -51,6 +61,7 @@ export function App(): React.JSX.Element {
   const [dataVersion, setDataVersion] = useState(0)
   const [editor, setEditor] = useState<EditorRequest | null>(null)
   const [searchFocusSignal, setSearchFocusSignal] = useState(0)
+  const { epoch } = useSettings()
 
   const refresh = useCallback(() => setDataVersion((v) => v + 1), [])
   const openEditor = useCallback((req: EditorRequest) => setEditor(req), [])
@@ -107,37 +118,31 @@ export function App(): React.JSX.Element {
             <span className="brand-name">MeowLife</span>
           </div>
           {NAV.map((n) => (
-            <button
-              key={n.id}
-              type="button"
-              className="nav-item"
-              aria-current={page === n.id ? 'page' : undefined}
-              onClick={() => setPage(n.id)}
-            >
-              <span className="nav-icon" aria-hidden="true">
-                {n.icon}
-              </span>
-              {n.label}
-            </button>
-          ))}
-          <div className="nav-section">เร็ว ๆ นี้</div>
-          {COMING_SOON.map((n) => (
-            <button key={n.label} type="button" className="nav-item" aria-disabled="true" title="กำลังพัฒนา ยังใช้งานไม่ได้" tabIndex={-1}>
-              <span className="nav-icon" aria-hidden="true">
-                {n.icon}
-              </span>
-              {n.label}
-              <span className="soon">เร็ว ๆ นี้</span>
-            </button>
-          ))}
-          <SyncPill />
+            <div key={n.id} style={{ display: 'contents' }}>
+              {n.section && <div className="nav-section">{n.section}</div>}
+              <button type="button" className="nav-item" aria-current={page === n.id ? 'page' : undefined} onClick={() => setPage(n.id)}>
+                <span className="nav-icon" aria-hidden="true">
+                  {n.icon}
+                </span>
+                {n.label}
+              </button>
+            </div>
+          ))}          <SyncPill />
         </nav>
 
-        <main className="main">
+        <main className="main" key={epoch}>
           <UpdateBanner />
           {page === 'dashboard' && <DashboardPage />}
           {page === 'transactions' && <TransactionsPage searchFocusSignal={searchFocusSignal} />}
           {page === 'recurring' && <RecurringPage />}
+          {page === 'calendar' && <CalendarPage />}
+          {page === 'tasks' && <TasksPage />}
+          {page === 'journal' && <JournalPage />}
+          {page === 'goals' && <GoalsPage />}
+          {page === 'habits' && <HabitsPage />}
+          {page === 'notes' && <NotesPage />}
+          {page === 'insights' && <InsightsPage />}
+          {page === 'companion' && <CompanionPage />}
           {page === 'reports' && <ReportsPage />}
           {page === 'categories' && <CategoriesPage />}
           {page === 'data' && <DataPage />}
@@ -146,6 +151,7 @@ export function App(): React.JSX.Element {
       </div>
 
       <TransactionEditor request={editor} onClose={() => setEditor(null)} />
+      <BadgeWatcher />
     </PortalProvider>
     </SyncProvider>
   )
@@ -193,4 +199,24 @@ function TransactionEditor({ request, onClose }: { request: EditorRequest | null
       )}
     </Modal>
   )
+}
+
+/** Tells the user once when a new badge is earned (gently; checked after data changes). */
+function BadgeWatcher(): null {
+  const { dataVersion, toast } = usePortal()
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      unwrap(meow().portal.companion.state()).then(
+        (state) => {
+          if (state.newBadgeIds.length === 0) return
+          const names = state.badges.filter((b) => state.newBadgeIds.includes(b.id)).map((b) => `${b.icon} ${b.title}`)
+          toast(`ได้ Badge ใหม่: ${names.join(', ')}`)
+          void meow().portal.companion.markSeen(state.newBadgeIds)
+        },
+        () => undefined
+      )
+    }, 2500)
+    return () => window.clearTimeout(id)
+  }, [dataVersion, toast])
+  return null
 }

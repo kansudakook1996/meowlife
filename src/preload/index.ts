@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC, IPC_EVENTS, type MeowBridge } from '@shared/ipc'
+import { portalChannel as ch } from '@shared/portalApi'
 import type { UpdateStatus } from '@shared/types'
 
 /**
@@ -48,11 +49,62 @@ const bridge: MeowBridge = {
       ipcRenderer.invoke(IPC.importCommit, { token, mapping, includeDuplicates, createMissing }),
     saveImportErrors: (token, mapping) => ipcRenderer.invoke(IPC.importSaveErrors, { token, mapping })
   },
+  portal: {
+    tasks: {
+      list: () => ipcRenderer.invoke(ch('tasks', 'list')),
+      create: (input) => ipcRenderer.invoke(ch('tasks', 'create'), input),
+      update: (id, input) => ipcRenderer.invoke(ch('tasks', 'update'), { id, input }),
+      setDone: (id, done) => ipcRenderer.invoke(ch('tasks', 'setDone'), { id, done }),
+      remove: (id) => ipcRenderer.invoke(ch('tasks', 'remove'), id),
+      restore: (id) => ipcRenderer.invoke(ch('tasks', 'restore'), id)
+    },
+    journal: {
+      list: () => ipcRenderer.invoke(ch('journal', 'list')),
+      save: (input) => ipcRenderer.invoke(ch('journal', 'save'), input),
+      remove: (id) => ipcRenderer.invoke(ch('journal', 'remove'), id),
+      restore: (id) => ipcRenderer.invoke(ch('journal', 'restore'), id)
+    },
+    goals: {
+      list: () => ipcRenderer.invoke(ch('goals', 'list')),
+      create: (input) => ipcRenderer.invoke(ch('goals', 'create'), input),
+      update: (id, input) => ipcRenderer.invoke(ch('goals', 'update'), { id, input }),
+      addSaving: (id, deltaSatang) => ipcRenderer.invoke(ch('goals', 'addSaving'), { id, deltaSatang }),
+      setDone: (id, done) => ipcRenderer.invoke(ch('goals', 'setDone'), { id, done }),
+      remove: (id) => ipcRenderer.invoke(ch('goals', 'remove'), id),
+      restore: (id) => ipcRenderer.invoke(ch('goals', 'restore'), id)
+    },
+    habits: {
+      list: () => ipcRenderer.invoke(ch('habits', 'list')),
+      create: (input) => ipcRenderer.invoke(ch('habits', 'create'), input),
+      update: (id, input) => ipcRenderer.invoke(ch('habits', 'update'), { id, input }),
+      check: (habitId, date, checked) => ipcRenderer.invoke(ch('habits', 'check'), { habitId, date, checked }),
+      remove: (id) => ipcRenderer.invoke(ch('habits', 'remove'), id),
+      restore: (id) => ipcRenderer.invoke(ch('habits', 'restore'), id)
+    },
+    notes: {
+      list: () => ipcRenderer.invoke(ch('notes', 'list')),
+      create: (input) => ipcRenderer.invoke(ch('notes', 'create'), input),
+      update: (id, input) => ipcRenderer.invoke(ch('notes', 'update'), { id, input }),
+      remove: (id) => ipcRenderer.invoke(ch('notes', 'remove'), id),
+      restore: (id) => ipcRenderer.invoke(ch('notes', 'restore'), id)
+    },
+    calendar: { range: (from, to) => ipcRenderer.invoke(ch('calendar', 'range'), { from, to }) },
+    reminders: { due: () => ipcRenderer.invoke(ch('reminders', 'due')) },
+    insights: { activity: (month) => ipcRenderer.invoke(ch('insights', 'activity'), month) },
+    companion: {
+      state: () => ipcRenderer.invoke(ch('companion', 'state')),
+      markSeen: (ids) => ipcRenderer.invoke(ch('companion', 'markSeen'), ids)
+    },
+    settings: {
+      get: () => ipcRenderer.invoke(ch('settings', 'get')),
+      set: (patch) => ipcRenderer.invoke(ch('settings', 'set'), patch)
+    }
+  },
   sync: {
     bind: (uid) => ipcRenderer.invoke(IPC.syncBind, uid),
     getCursor: (table) => ipcRenderer.invoke(IPC.syncGetCursor, table),
     setCursor: (table, value) => ipcRenderer.invoke(IPC.syncSetCursor, { table, value }),
-    getDirty: (limit) => ipcRenderer.invoke(IPC.syncGetDirty, limit),
+    getDirty: (limit, exclude = []) => ipcRenderer.invoke(IPC.syncGetDirty, { limit, exclude }),
     countDirty: () => ipcRenderer.invoke(IPC.syncCountDirty),
     markClean: (items) => ipcRenderer.invoke(IPC.syncMarkClean, items),
     applyRemote: (table, docs) => ipcRenderer.invoke(IPC.syncApplyRemote, { table, docs }),

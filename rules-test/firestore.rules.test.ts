@@ -7,8 +7,9 @@ import { openMemoryDatabase } from '../src/main/db/connection'
 import { DEFAULT_CATEGORIES } from '../src/main/db/defaults'
 import { createRecurring, ensureRecurringForMonth } from '../src/main/db/recurringRepo'
 import { getDirty } from '../src/main/db/syncRepo'
+import { createGoal, createHabit, createNote, createTask, saveJournal, setHabitCheck } from '../src/main/db/portalRepo'
 import { createTransaction } from '../src/main/db/transactionRepo'
-import type { SyncDoc } from '../src/shared/syncModel'
+import { SYNC_TABLES, type SyncDoc } from '../src/shared/syncModel'
 
 /**
  * Runs against the Firestore EMULATOR with the real firestore.rules (`npm run test:rules`).
@@ -51,6 +52,13 @@ function appDocs(): Array<{ table: string; doc: SyncDoc }> {
     isActive: true
   })
   ensureRecurringForMonth(db, '2026-10')
+  createTask(db, { title: 'งาน', note: '', dueDate: '2026-10-30', repeat: 'weekly' })
+  saveJournal(db, { entryDate: '2026-10-28', mood: 4, body: 'วันนี้ดี' })
+  createGoal(db, { title: 'ออม', kind: 'saving', targetSatang: 100000, savedSatang: 5000, progress: 0, targetDate: null, note: '' })
+  createGoal(db, { title: 'เรียน', kind: 'life', targetSatang: null, savedSatang: 0, progress: 30, targetDate: '2027-01-01', note: 'x' })
+  const habit = createHabit(db, { name: 'ดื่มน้ำ', icon: '💧' })
+  setHabitCheck(db, habit.id, '2026-10-28', true)
+  createNote(db, { title: 'โน้ต', body: 'เนื้อหา', isPinned: true })
   // Mark everything dirty so seeded categories / payment methods are included too.
   for (const t of ['categories', 'payment_methods']) db.exec(`UPDATE ${t} SET dirty = 1`)
   return getDirty(db, 500)
@@ -83,7 +91,7 @@ const as = (uid: string) => env.authenticatedContext(uid).firestore()
 describe('owner access', () => {
   it("accepts every kind of document the app really produces (so sync works)", async () => {
     const docs = appDocs()
-    expect(new Set(docs.map((d) => d.table))).toEqual(new Set(['categories', 'payment_methods', 'recurring_rules', 'transactions']))
+    expect(new Set(docs.map((d) => d.table))).toEqual(new Set(SYNC_TABLES)) // every synced table is covered
     const db = as(ALICE)
     for (const { table, doc: d } of docs) {
       await assertSucceeds(setDoc(doc(db, 'users', ALICE, table, String(d['id'])), d))
@@ -127,6 +135,30 @@ describe('other users and strangers', () => {
     await assertFails(getDoc(doc(alice, 'users', ALICE)))
     await assertFails(setDoc(doc(alice, 'users', ALICE), { a: 1 }))
     await assertFails(setDoc(doc(alice, 'users', ALICE, 'secrets', 'x'), validTx('x')))
+  })
+})
+
+describe('Portal documents', () => {
+  const taskDoc = (): Record<string, unknown> => appDocs().find((x) => x.table === 'tasks')!.doc
+  const noteDoc = (): Record<string, unknown> => appDocs().find((x) => x.table === 'notes')!.doc
+  const put = (table: string, d: Record<string, unknown>): Promise<void> => setDoc(doc(as(ALICE), 'users', ALICE, table, String(d['id'])), d)
+
+  it('rejects bad values in tasks, notes and journal pages', async () => {
+    await assertSucceeds(put('tasks', taskDoc()))
+    await assertFails(put('tasks', { ...taskDoc(), repeat: 'yearly' }))
+    await assertFails(put('tasks', { ...taskDoc(), title: 'ก'.repeat(81) }))
+    await assertFails(put('notes', { ...noteDoc(), body: 'x'.repeat(5001) }))
+    await assertSucceeds(put('notes', { ...noteDoc(), body: 'x'.repeat(5000) }))
+    const j = appDocs().find((x) => x.table === 'journal_entries')!.doc
+    await assertFails(put('journal_entries', { ...j, mood: 6 }))
+    await assertFails(put('journal_entries', { ...j, extra: 1 }))
+  })
+
+  it("keeps Portal data private too", async () => {
+    await assertSucceeds(put('notes', noteDoc()))
+    const bob = as(BOB)
+    await assertFails(getDoc(doc(bob, 'users', ALICE, 'notes', String(noteDoc()['id']))))
+    await assertFails(setDoc(doc(bob, 'users', ALICE, 'tasks', String(taskDoc()['id'])), taskDoc()))
   })
 })
 

@@ -1,10 +1,11 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { recurringDateFor } from '@shared/dates'
 import type { RecurringInput } from '@shared/schemas'
 import { GENERATED_UPDATED_AT } from '@shared/syncModel'
 import type { EntryKind, RecurringRule } from '@shared/types'
 import { assertReferencesExist, NotFoundError } from './catalogRepo'
 import { inTransaction, nowIso, type Db } from './connection'
+import { deterministicId } from './ids'
 
 interface RecurringRow {
   id: string
@@ -20,13 +21,9 @@ interface RecurringRow {
   is_active: number
 }
 
-/** UUID (v5-style) derived from rule + month, so every device generates the same id for the same bill. */
+/** Same id on every device for the same bill: rule + month. */
 export function recurringItemId(ruleId: string, month: string): string {
-  const h = createHash('sha1').update(`${ruleId}:${month}`).digest()
-  h[6] = ((h[6] as number) & 0x0f) | 0x50
-  h[8] = ((h[8] as number) & 0x3f) | 0x80
-  const x = h.subarray(0, 16).toString('hex')
-  return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`
+  return deterministicId(`${ruleId}:${month}`) // key must never change: ids already exist on synced devices
 }
 
 function toRule(r: RecurringRow): RecurringRule {

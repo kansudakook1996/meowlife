@@ -102,6 +102,22 @@ start_month (YYYY-MM), end_month NULL, note, is_active, created_at, updated_at, 
 3. ส่ง (push) แถว `dirty = 1` เป็นชุดละ 400 แล้ว `markClean` เฉพาะแถวที่ไม่ถูกแก้ซ้ำระหว่างส่ง
 4. การลบเป็น soft delete (`deleted_at`) ส่งไปเหมือนการแก้ไขทั่วไป
 
+## 6.1 ตาราง Personal Portal (migration 3)
+ทุกตารางมีคอลัมน์ซิงก์ชุดเดียวกับตารางการเงิน (`created_at, updated_at, deleted_at, dirty, base_updated_at`) และลบแบบ soft delete
+| ตาราง | ฟิลด์หลัก | หมายเหตุ |
+|---|---|---|
+| `tasks` | title, note, due_date, repeat (none/daily/weekly/monthly), is_done, done_date | งานทำซ้ำ: ติ๊กเสร็จ → `due_date` เลื่อนไปครั้งถัดไปที่ **หลังวันนี้**, `is_done` ยังเป็น 0 (รายเดือนเก็บเลขวันเดิม ปรับเป็นวันสุดท้ายของเดือนสั้น) |
+| `journal_entries` | entry_date, mood 1–5, body ≤ 5000 | `id` = UUID จาก `journal:YYYY-MM-DD` (หนึ่งหน้าต่อวัน เหมือนกันทุกเครื่อง) |
+| `goals` | title, kind (life/saving), target_satang, saved_satang, progress 0–100, target_date, note, is_done, done_date | ออมถึงเป้า → `is_done = 1` อัตโนมัติ; เปอร์เซ็นต์การออมไม่ถูกตัดที่ 100 |
+| `habits` | name, icon, sort_order | |
+| `habit_checks` | habit_id (FK), check_date | `id` = UUID จาก `habit:<habitId>:<date>`; เอาติ๊กออก = soft delete, ติ๊กใหม่ = กู้คืน; ลบ/กู้คืนนิสัยทำพร้อมติ๊กของมัน |
+| `notes` | title, body ≤ 5000, is_pinned | |
+| `app_settings` | key, value (JSON) | **เก็บเฉพาะเครื่องนี้ ไม่ซิงก์**: theme, dueSoonDays, yearStyle, moneyStyle, remindersEnabled, reminderHour, autoSync |
+| `sync_state` (เพิ่มคีย์) | `last_reminder_date`, `badges_seen` | ไม่ซิงก์ |
+
+Streak (นิสัย/บันทึก): `dateStreaks()` ใน `src/shared/portalModel.ts` — ต่อเนื่องนับถึงวันนี้ หรือถึงเมื่อวานถ้าวันนี้ยังไม่ได้ทำ (ไม่ทำให้สถิติหายทันที)
+Badge: คำนวณจากข้อมูลจริงทุกครั้ง (`evaluateBadges`) ไม่เก็บสถานะ ยกเว้นรายการที่ "แจ้งแล้ว" (`badges_seen`)
+
 ## 7. Mapping จาก Excel เดิม
 ยังไม่ได้รับไฟล์ตัวอย่างจากเจ้าของ จึงทำตัวช่วยจับคู่คอลัมน์ (เดาจากชื่อหัวตารางไทย/อังกฤษ แล้วให้ผู้ใช้ปรับเอง) แทนการล็อกรูปแบบไฟล์
 ดู `src/shared/importMap.ts`: วันที่ (ISO, วว/ดด/ปปปป, พ.ศ., ชื่อเดือนไทย, เลขวันที่ Excel), จำนวนเงิน (`1,234.50`, `฿`, `(500)`, ติดลบ),
