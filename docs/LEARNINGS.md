@@ -47,6 +47,30 @@
 - **แก้**: เพิ่ม block ใน `eslint.config.mjs` สำหรับ `scripts/**/*.cjs` (globals node, commonjs)
 - **ข้อสังเกต**: `npm run verify` หยุดที่ lint ทำให้ build ไม่รัน → E2E รอบนั้นทดสอบ build เก่า ต้องรันใหม่หลังแก้
 
+## 2026-10-28 — Release v0.1.0 ซ้ำ 2 อัน → ลิงก์ดาวน์โหลดเป็น 404
+- **อาการ**: มี Release tag `v0.1.0` สองอัน (อันหนึ่งมีแค่ `.blockmap`) และ `/releases/download/v0.1.0/latest.yml` ตอบ 404
+- **สาเหตุ**: electron-builder อัปโหลดหลายไฟล์พร้อมกัน แต่ละไฟล์สร้าง Release เอง
+- **แก้**: workflow สร้าง draft ด้วย `gh release create` ก่อน → electron-builder (`releaseType: draft`) อัปโหลดเข้าอันเดียว → `gh release edit --draft=false`
+- **ยังค้าง**: Release ซ้ำของ v0.1.0 ต้องลบด้วยมือบนเว็บ
+
+## 2026-10-28 — `-c.publish.releaseType=draft` ทำ build พัง
+- **อาการ**: `ENOENT: no such file or directory, open '.publish.releaseType=draft'` (v0.1.1 ไม่ได้ออก)
+- **สาเหตุ**: `-c` ของ electron-builder คือ "path ไฟล์ config" ต้องเขียนเป็น `--config.publish.releaseType=draft`
+- **แก้**: ย้ายค่าไปไว้ใน `electron-builder.yml`; ทดสอบคำสั่ง CI ในเครื่องก่อน push tag
+
+## 2026-10-28 — ข้อความ commit ที่มี `"` ใน PowerShell ทำ commit ล้ม แต่ tag ยังถูกสร้าง
+- **สาเหตุ**: PowerShell 5.1 ส่ง here-string ที่มีเครื่องหมายคำพูดให้ git ผิดรูป และคำสั่งต่อ ๆ ไปใน `;` ยังรันต่อ
+- **แก้/ป้องกัน**: ใช้ `git commit -F <ไฟล์>` และเช็ก `$LASTEXITCODE` ก่อน tag ทุกครั้ง
+
+## 2026-10-28 — ติดตั้งแบบเงียบจาก shell ของ agent ไม่ได้ผล / สคริปต์ .ps1 ถูกบล็อก
+- shell ของ agent รันตัวติดตั้งแล้วได้ exit 0 แต่ไม่มีอะไรถูกติดตั้ง (sandbox) → รันใน Terminal ของผู้ใช้แทน
+- Terminal ของผู้ใช้ห้ามรันสคริปต์ (`running scripts is disabled`) → **ไม่แก้ Execution Policy** ใช้คำสั่งตรงแทน
+- `/S` ของ assisted installer ติดตั้งแบบทุกผู้ใช้ (Program Files) จึงต้องผ่าน UAC
+
+## 2026-10-28 — อัปเดตแล้วหน้าต่างติดตั้งค้างรอกด Finish
+- **สาเหตุ**: `autoUpdater.quitAndInstall(false, true)` กับ NSIS แบบ assisted (`oneClick: false`) จะแสดงหน้าติดตั้งเต็ม
+- **แก้**: `quitAndInstall(true, true)` (เงียบ + เปิดแอปใหม่) ใน 0.1.3 — มีผลตั้งแต่การอัปเดต *จาก* 0.1.3 ขึ้นไป
+
 ## 2026-10-28 — npm 11 ไม่รัน install scripts อัตโนมัติ
 - **อาการ**: `install-scripts ... electron-winstaller ... not yet covered by allowScripts`
 - **ผล**: ไม่กระทบ (เป็น dependency ของ Squirrel ที่เราไม่ได้ใช้) Electron ดาวน์โหลด binary เองเมื่อรันครั้งแรก

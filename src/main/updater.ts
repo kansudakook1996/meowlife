@@ -37,8 +37,9 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
 
 export function installUpdate(): void {
   if (status.state !== 'downloaded') return
-  // isSilent = false shows the installer progress; isForceRunAfter = true reopens the app.
-  autoUpdater.quitAndInstall(false, true)
+  // isSilent = true: without it the assisted NSIS installer shows its full wizard and waits
+  // for "Finish" (seen when testing 0.1.0 → 0.1.2). isForceRunAfter = true reopens the app.
+  autoUpdater.quitAndInstall(true, true)
 }
 
 export function startAutoUpdates(): void {
