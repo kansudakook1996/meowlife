@@ -1,0 +1,25 @@
+# CHANGELOG
+
+รูปแบบตาม [Keep a Changelog](https://keepachangelog.com/th/1.1.0/) และ [Semantic Versioning](https://semver.org/lang/th/)
+
+## [Unreleased]
+
+## [0.1.0] — ยังไม่ได้ออก Release (สร้างตัวติดตั้งในเครื่องได้แล้ว)
+
+### เพิ่ม
+- โครงโปรเจกต์ Electron 44 + React 19 + TypeScript 6 + Vite 8 (electron-vite)
+- ฐานข้อมูลในเครื่องด้วย SQLite (`node:sqlite`) พร้อมระบบ migration
+- หน้าภาพรวมรายเดือน: รายรับ รายจ่าย คงเหลือ ค้างชำระ บิลที่ยังไม่จ่าย รายจ่ายตามหมวด
+- หน้ารายการรับ-จ่าย: เพิ่ม แก้ไข ลบ (ยืนยัน + เลิกทำ) ค้นหา กรองตามประเภท/สถานะ/หมวด
+- สถานะการชำระ 4 แบบ แสดงด้วยสี ไอคอน และข้อความ
+- รายการประจำรายเดือน สร้างรายการให้อัตโนมัติ (วันที่ 31 → วันสุดท้ายของเดือน)
+- หมวดหมู่และช่องทางชำระเริ่มต้น (ไม่มีข้อมูลรายการตัวอย่าง)
+- แมวคู่ใจ "โมจิ" (SVG ต้นฉบับ) 4 อารมณ์ / ฟอนต์ Mali + Sarabun แบบออฟไลน์
+- คีย์ลัด Ctrl+N (เพิ่มรายการ), Ctrl+F (ค้นหา), Esc (ปิดหน้าต่าง)
+- ตัวติดตั้ง Windows (NSIS) ผ่าน electron-builder
+- GitHub Actions: CI และ Release (ยังไม่ได้รันบน GitHub)
+- เอกสาร: Spec, Architecture, Data Model, UX, ADR 5 ฉบับ, คู่มือภาษาไทย 3 ฉบับ
+
+### ความปลอดภัย
+- `contextIsolation`, `sandbox`, ปิด `nodeIntegration`, CSP, IPC whitelist + ตรวจข้อมูลด้วย zod
+- ข้อมูลโหมดพัฒนาแยกจากข้อมูลจริง (`MeowLife-dev`)

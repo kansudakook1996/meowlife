@@ -1,0 +1,40 @@
+/* Design tokens — see docs/UX_GUIDELINES.md. Components use only these variables. */
+:root {
+  --pink-50: #fff5f9;
+  --pink-100: #ffe4ee;
+  --pink-300: #ffb3cc;
+  --pink-500: #e85d8f;
+  --pink-700: #b23a68;
+  --yellow-100: #fff6d6;
+  --yellow-300: #ffe08a;
+  --yellow-600: #8a6400;
+  --blue-100: #e3f2ff;
+  --blue-300: #a9d4ff;
+  --blue-600: #2f6fb0;
+  --green-100: #e3f7ea;
+  --green-600: #237a46;
+  --red-100: #ffe6e3;
+  --red-600: #b3261e;
+  --gray-100: #f3eef3;
+  --gray-300: #ddd3dd;
+
+  --bg: #fff9fb;
+  --surface: #ffffff;
+  --text: #3a2e39;
+  --text-muted: #6e6170;
+  --border: #f0dfe7;
+  --cat-fur: #fff4e8;
+  --cat-line: #3a2e39;
+
+  --income: var(--blue-600);
+  --expense: var(--pink-700);
+
+  --radius-sm: 10px;
+  --radius: 16px;
+  --radius-lg: 24px;
+  --shadow: 0 4px 16px rgba(178, 58, 104, 0.08);
+  --focus: 3px solid var(--blue-600);
+
+  --font-display: 'Mali', 'Sarabun', 'Leelawadee UI', sans-serif;
+  --font-body: 'Sarabun', 'Leelawadee UI', 'Tahoma', sans-serif;
+}

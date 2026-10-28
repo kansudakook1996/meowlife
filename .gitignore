@@ -1,0 +1,40 @@
+# Dependencies & build output
+node_modules/
+out/
+dist/
+coverage/
+test-results/
+playwright-report/
+*.tsbuildinfo
+
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.p12
+*.pfx
+serviceAccount*.json
+*-firebase-adminsdk-*.json
+
+# Local data — never commit real financial data
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+backups/
+*.meowbackup
+
+# Firebase emulator / debug
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.log

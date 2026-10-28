@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// MeowLife Firestore Security Rules (draft for M4 — test with the emulator before publishing).
+// Each user can only read/write documents under users/{their own uid}.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function allowedCollection(name) {
+      return name in ['transactions', 'categories', 'payment_methods', 'recurring_rules'];
+    }
+
+    function validDoc(docId) {
+      let d = request.resource.data;
+      return d.id == docId
+        && d.updatedAt is string
+        && request.resource.size() < 20000;
+    }
+
+    match /users/{uid}/{collection}/{docId} {
+      allow read: if isOwner(uid) && allowedCollection(collection);
+      allow create, update: if isOwner(uid) && allowedCollection(collection) && validDoc(docId);
+      allow delete: if isOwner(uid) && allowedCollection(collection);
+    }
+
+    // Everything else is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

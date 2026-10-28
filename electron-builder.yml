@@ -1,0 +1,33 @@
+# electron-builder config — https://www.electron.build/configuration
+appId: com.kansu.meowlife
+productName: MeowLife
+copyright: Copyright © 2026 kansu
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+asar: true
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: MeowLife-Setup-${version}.${ext}
+  # No code-signing certificate yet: Windows SmartScreen will warn on first install.
+  # See docs/GITHUB_RELEASE_TH.md
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: MeowLife
+  # Keep the user's data (%APPDATA%\MeowLife) when uninstalling or updating.
+  deleteAppDataOnUninstall: false
+# Auto-update source. Set owner/repo after creating the GitHub repository (M5).
+# publish:
+#   provider: github
+#   owner: <github-username>
+#   repo: meowlife
