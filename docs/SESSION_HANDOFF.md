@@ -1,5 +1,24 @@
 # Session Handoff
 
+## Session 2 — 2026-10-29 (ซิงก์ Firestore + M2 + M3 → v0.2.0)
+
+### สิ่งที่ทำ
+- ซิงก์: `shared/syncModel.ts`, `shared/syncEngine.ts`, `main/db/syncRepo.ts`, migration 2, IPC `sync:*`, `lib/useSync.tsx`, `SyncPill`, ส่วนซิงก์/ข้อขัดแย้งใน `AccountCard`
+- รายการประจำ: id คงที่ (`recurringItemId`) + `updated_at` epoch เพื่อไม่ซ้ำ/ไม่ฟื้นข้ามเครื่อง
+- Backup/Restore (`backupRepo.ts`), สำรองรายวัน, นำเข้า (`import/xlsx.ts` อ่าน .xlsx เอง, `shared/importMap.ts`), ส่งออก (`shared/exportCsv.ts`),
+  หน้า หมวดหมู่ / ข้อมูลและสำรอง / รายงาน
+- Rules ใหม่ (ตรวจทุกฟิลด์) + Emulator tests (`rules-test/`, `npm run test:rules`, ติดตั้ง JDK 21 ผ่าน winget, `firebase.json`)
+- `src/renderer/src/lib/firestoreRemote.ts` แยกออกมาให้ทดสอบกับ Emulator ได้
+
+### ข้อควรระวังสำหรับ session ถัดไป
+- **อย่าแก้ migration 1–2** ที่ปล่อยไปแล้ว ให้เพิ่ม migration ใหม่ (ทุกครั้งที่อัปเกรดแอปสำรอง DB ให้เอง)
+- เปลี่ยนฟิลด์ของตารางที่ซิงก์ ต้องแก้ 3 ที่พร้อมกัน: `TABLE_COLUMNS`/`DOC_SCHEMAS` (`syncModel.ts`), `firestore.rules`, และเทสต์ใน `rules-test/` แล้ว Publish rules **ก่อน** ปล่อยแอป
+- `npm run verify` ไม่รวม `test:rules` (ต้องใช้ Java) — รันแยก; CI มี job `rules` บน Ubuntu
+- ผล `e2e/data.spec.ts` ใช้การ stub `dialog` ของ Electron — ถ้าเพิ่มหน้าต่างเลือกไฟล์ใหม่ ให้ stub แบบเดียวกัน
+
+### เริ่ม Session ถัดไป
+1. อ่านผลทดสอบซิงก์จริงของเจ้าของ (แถบสถานะ/ข้อความผิดพลาด) 2. Personal Portal (M6) ตามที่เจ้าของเลือก
+
 ## Session 1 (ต่อ) — 2026-10-28 (GitHub, Release, Auto-update, ฟอนต์/สี, Firebase ขั้น 6–8)
 
 ### สิ่งที่ทำ

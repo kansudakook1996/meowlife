@@ -1,35 +1,99 @@
 rules_version = '2';
 
 // MeowLife Firestore Security Rules. Paste into Firebase console → Firestore → Rules → Publish.
-// The in-app "ทดสอบการเชื่อมต่อ" button checks that these are active.
-// Each user can only read/write documents under users/{their own uid}.
+// Tested against the emulator: `npm run test:rules` (rules-test/). The in-app "ทดสอบการเชื่อมต่อ" button checks they are live.
+//
+// 1) Only the owner (request.auth.uid == {uid}) can touch users/{uid}/... — nobody else, not even signed-in users.
+// 2) Documents must have exactly the fields the app writes, with the right types and lengths
+//    (Firestore rules cannot measure bytes, so every field is bounded instead).
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() {
-      return request.auth != null;
-    }
-
     function isOwner(uid) {
-      return signedIn() && request.auth.uid == uid;
+      return request.auth != null && request.auth.uid == uid;
     }
 
-    function allowedCollection(name) {
-      // 'meta' holds the in-app connection test document (users/{uid}/meta/connection).
-      return name in ['transactions', 'categories', 'payment_methods', 'recurring_rules', 'meta'];
+    function str(v, max) {
+      return v is string && v.size() >= 1 && v.size() <= max;
+    }
+    function strOrEmpty(v, max) {
+      return v is string && v.size() <= max;
+    }
+    function strOrNull(v, max) {
+      return v == null || str(v, max);
+    }
+    function whole(v, lo, hi) {
+      return v is int && v >= lo && v <= hi;
+    }
+    function stamp(v) {
+      return v is string && v.size() >= 20 && v.size() <= 40;
+    }
+    function kind(v) {
+      return v == 'income' || v == 'expense';
     }
 
-    function validDoc(docId) {
-      let d = request.resource.data;
-      return d.id == docId
-        && d.updatedAt is string
-        && request.resource.size() < 20000;
+    function validCategory(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'kind', 'name', 'icon', 'sortOrder'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && kind(d.kind) && str(d.name, 40) && str(d.icon, 8) && whole(d.sortOrder, 0, 100000);
     }
 
-    match /users/{uid}/{collection}/{docId} {
-      allow read: if isOwner(uid) && allowedCollection(collection);
-      allow create, update: if isOwner(uid) && allowedCollection(collection) && validDoc(docId);
-      allow delete: if isOwner(uid) && allowedCollection(collection);
+    function validPaymentMethod(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'name', 'sortOrder'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.name, 40) && whole(d.sortOrder, 0, 100000);
+    }
+
+    function validRecurring(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'kind', 'title', 'amountSatang', 'categoryId',
+                  'paymentMethodId', 'dayOfMonth', 'startMonth', 'endMonth', 'note', 'isActive'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && kind(d.kind) && str(d.title, 80) && whole(d.amountSatang, 1, 99999999999)
+        && strOrNull(d.categoryId, 64) && strOrNull(d.paymentMethodId, 64)
+        && whole(d.dayOfMonth, 1, 31) && str(d.startMonth, 7) && strOrNull(d.endMonth, 7)
+        && strOrEmpty(d.note, 500) && whole(d.isActive, 0, 1);
+    }
+
+    function validTransaction(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'kind', 'title', 'amountSatang', 'categoryId',
+                  'paymentMethodId', 'txnDate', 'dueDate', 'isPaid', 'paidDate', 'note', 'recurringRuleId', 'recurringPeriod'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && kind(d.kind) && str(d.title, 80) && whole(d.amountSatang, 1, 99999999999)
+        && strOrNull(d.categoryId, 64) && strOrNull(d.paymentMethodId, 64)
+        && str(d.txnDate, 10) && strOrNull(d.dueDate, 10) && whole(d.isPaid, 0, 1) && strOrNull(d.paidDate, 10)
+        && strOrEmpty(d.note, 500) && strOrNull(d.recurringRuleId, 64) && strOrNull(d.recurringPeriod, 7);
+    }
+
+    // Written by the in-app connection test button.
+    function validMeta(d, docId) {
+      let keys = ['id', 'updatedAt', 'kind'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.updatedAt) && str(d.kind, 40);
+    }
+
+    match /users/{uid}/categories/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validCategory(request.resource.data, docId);
+    }
+    match /users/{uid}/payment_methods/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validPaymentMethod(request.resource.data, docId);
+    }
+    match /users/{uid}/recurring_rules/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validRecurring(request.resource.data, docId);
+    }
+    match /users/{uid}/transactions/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validTransaction(request.resource.data, docId);
+    }
+    match /users/{uid}/meta/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validMeta(request.resource.data, docId);
     }
 
     // Everything else is closed.

@@ -1,7 +1,7 @@
 {
   "name": "meowlife",
   "productName": "MeowLife",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "MeowLife — Personal Portal สำหรับจัดการชีวิตส่วนตัว",
   "author": "kansu",
   "license": "UNLICENSED",
@@ -23,6 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
+    "test:rules": "firebase emulators:exec --only firestore --project meowlife-rules-test \"vitest run --config rules-test/vitest.rules.config.mts\"",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build",
     "dist": "npm run build && electron-builder --win --publish never",
     "dist:dir": "npm run build && electron-builder --win --dir --publish never"
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
+    "@firebase/rules-unit-testing": "6.0.0",
     "@fontsource/ibm-plex-sans-thai": "5.3.0",
     "@playwright/test": "1.64.1",
     "@types/node": "24.19.2",
@@ -45,6 +47,7 @@
     "eslint": "10.13.0",
     "eslint-plugin-react-hooks": "7.1.1",
     "firebase": "13.1.0",
+    "firebase-tools": "15.34.1",
     "globals": "17.13.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
