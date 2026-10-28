@@ -11,6 +11,9 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    env:
+      # GITHUB_TOKEN is created by GitHub for this run only. It is never stored in the app.
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -27,8 +30,17 @@ jobs:
           fi
       - run: npm run verify
       - run: npx playwright test
-      - name: Build installer and publish to GitHub Releases
-        # GITHUB_TOKEN is created by GitHub for this run only. It is never stored in the app.
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx electron-builder --win --publish always
+      # Create ONE draft release first. If electron-builder creates it, parallel uploads can
+      # create duplicate releases for the same tag (happened with v0.1.0).
+      - name: Create draft release with Thai notes from CHANGELOG
+        shell: bash
+        run: |
+          node scripts/release-notes.cjs "${GITHUB_REF_NAME#v}" > release-notes.md
+          gh release create "$GITHUB_REF_NAME" --draft --title "MeowLife ${GITHUB_REF_NAME#v}" --notes-file release-notes.md
+      - name: Build installer and upload to the draft
+        run: npx electron-builder --win --publish always -c.publish.releaseType=draft
+      - name: Publish the release
+        shell: bash
+        run: |
+          gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name'
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
