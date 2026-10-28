@@ -242,7 +242,7 @@ p {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 14px;
 }
 .summary-card {
@@ -260,10 +260,11 @@ p {
   font-family: var(--font-display);
 }
 .summary-card .value {
-  font-size: 1.5rem;
+  /* Shrink with the window instead of breaking a number across lines. */
+  font-size: clamp(1.05rem, 1.9vw, 1.5rem);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 .summary-income {
   background: var(--blue-100);
@@ -653,7 +654,15 @@ dialog.modal::backdrop {
 
 @media (max-width: 1000px) {
   .app {
-    grid-template-columns: 200px 1fr;
+    grid-template-columns: 210px 1fr;
+  }
+  .nav-item {
+    padding: 9px 10px;
+    white-space: nowrap;
+  }
+  /* The "เร็ว ๆ นี้" section heading already says it; the pills would squeeze Thai labels. */
+  .soon {
+    display: none;
   }
   .main {
     padding: 20px;

@@ -31,6 +31,22 @@
 - **แก้**: ระบุ `categoryId: null` ให้ค่าไฟใน test (ตรวจแล้วว่าโค้ดค้นหาทำงานถูก)
 - **ป้องกัน**: ก่อนแก้โค้ดให้ test ผ่าน ต้องดูให้แน่ว่า test คาดหวังถูกต้องหรือไม่
 
+## 2026-10-28 — Agent push เองไม่ได้ (ต้องล็อกอิน GitHub)
+- **อาการ**: `fatal: Cannot prompt because user interactivity has been disabled`
+- **สาเหตุ**: shell ของ agent เปิดหน้าต่าง Git Credential Manager ไม่ได้
+- **แก้**: รัน `git push` ครั้งแรกใน Terminal panel ของผู้ใช้ → ผู้ใช้ล็อกอินผ่านเบราว์เซอร์ → GCM จำไว้ใน
+  Windows Credential Manager ครั้งต่อไป push จาก agent ได้เลย (ไม่มี Token อยู่ในโปรเจกต์)
+
+## 2026-10-28 — ภาพอ้างอิงของผู้อื่นเกือบติดไปกับ commit
+- **อาการ**: `git add -A` เก็บโฟลเดอร์ `picture ref/` (ภาพ ©Sweet Summer) เข้า commit
+- **แก้**: `git rm -r --cached "picture ref"` + เพิ่มใน `.gitignore` ก่อน push (ไม่เคยขึ้น GitHub)
+- **ป้องกัน**: ดู `git status` ทุกครั้งก่อน commit; ภาพอ้างอิงให้เก็บใน `picture ref/` เท่านั้น
+
+## 2026-10-28 — ESLint ไม่รู้จักไฟล์ `.cjs`
+- **อาการ**: `'require' is not defined` ใน `scripts/make-icon.cjs`
+- **แก้**: เพิ่ม block ใน `eslint.config.mjs` สำหรับ `scripts/**/*.cjs` (globals node, commonjs)
+- **ข้อสังเกต**: `npm run verify` หยุดที่ lint ทำให้ build ไม่รัน → E2E รอบนั้นทดสอบ build เก่า ต้องรันใหม่หลังแก้
+
 ## 2026-10-28 — npm 11 ไม่รัน install scripts อัตโนมัติ
 - **อาการ**: `install-scripts ... electron-winstaller ... not yet covered by allowScripts`
 - **ผล**: ไม่กระทบ (เป็น dependency ของ Squirrel ที่เราไม่ได้ใช้) Electron ดาวน์โหลด binary เองเมื่อรันครั้งแรก
