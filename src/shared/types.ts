@@ -84,6 +84,24 @@ export interface AppInfo {
   isPackaged: boolean
 }
 
+export type UpdateState =
+  | 'disabled'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'up-to-date'
+  | 'error'
+
+export interface UpdateStatus {
+  state: UpdateState
+  /** Version being offered, when known. */
+  version: string | null
+  /** Download progress 0–100 while downloading. */
+  percent: number | null
+}
+
 export type IpcErrorCode = 'VALIDATION' | 'NOT_FOUND' | 'INTERNAL'
 
 export type IpcResult<T> =

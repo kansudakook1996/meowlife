@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC, type MeowBridge } from '@shared/ipc'
+import { IPC, IPC_EVENTS, type MeowBridge } from '@shared/ipc'
+import type { UpdateStatus } from '@shared/types'
 
 /**
  * The only door between the web page and Node. Each method maps to one whitelisted channel;
@@ -26,7 +27,20 @@ const bridge: MeowBridge = {
     update: (id, input) => ipcRenderer.invoke(IPC.recurringUpdate, { id, input }),
     remove: (id) => ipcRenderer.invoke(IPC.recurringRemove, id)
   },
-  summary: { month: (month) => ipcRenderer.invoke(IPC.summaryMonth, month) }
+  summary: { month: (month) => ipcRenderer.invoke(IPC.summaryMonth, month) },
+  updates: {
+    getStatus: () => ipcRenderer.invoke(IPC.updateGetStatus),
+    check: () => ipcRenderer.invoke(IPC.updateCheck),
+    install: () => ipcRenderer.invoke(IPC.updateInstall),
+    onStatus: (listener) => {
+      // Pass only the payload on, never the raw IpcRendererEvent.
+      const handler = (_event: Electron.IpcRendererEvent, status: UpdateStatus): void => listener(status)
+      ipcRenderer.on(IPC_EVENTS.updateStatus, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_EVENTS.updateStatus, handler)
+      }
+    }
+  }
 }
 
 contextBridge.exposeInMainWorld('meow', bridge)

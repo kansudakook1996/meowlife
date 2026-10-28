@@ -25,7 +25,8 @@
     "test:e2e": "npm run build && playwright test",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build",
     "dist": "npm run build && electron-builder --win --publish never",
-    "dist:dir": "npm run build && electron-builder --win --dir --publish never"
+    "dist:dir": "npm run build && electron-builder --win --dir --publish never",
+    "icon": "electron scripts/make-icon.cjs"
   },
   "dependencies": {
     "electron-updater": "6.8.11",

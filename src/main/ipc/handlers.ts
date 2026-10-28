@@ -15,7 +15,8 @@ import {
   TransactionUpdateSchema
 } from '@shared/schemas'
 import { summarizeMonth } from '@shared/summary'
-import type { IpcResult } from '@shared/types'
+import type { IpcResult, UpdateStatus } from '@shared/types'
+import { checkForUpdates, getUpdateStatus, installUpdate } from '../updater'
 import { createCategory, listCategories, listPaymentMethods, NotFoundError } from '../db/catalogRepo'
 import type { Db } from '../db/connection'
 import {
@@ -84,4 +85,8 @@ export function registerIpcHandlers(db: Db, dataPath: string): void {
     ensureRecurringForMonth(db, month)
     return summarizeMonth(month, listMonth(db, month, today()))
   })
+
+  handle(IPC.updateGetStatus, NoInput, () => getUpdateStatus())
+  ipcMain.handle(IPC.updateCheck, async (): Promise<IpcResult<UpdateStatus>> => ({ ok: true, data: await checkForUpdates() }))
+  handle(IPC.updateInstall, NoInput, () => installUpdate())
 }

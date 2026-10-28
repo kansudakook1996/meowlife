@@ -7,6 +7,7 @@ import { TransactionForm } from './components/TransactionForm'
 import { meow, unwrap } from './lib/api'
 import { PortalProvider, usePortal, type EditorRequest } from './lib/portal'
 import { useLoad } from './lib/useLoad'
+import { useUpdateStatus } from './lib/useUpdateStatus'
 import { DashboardPage } from './pages/DashboardPage'
 import { RecurringPage } from './pages/RecurringPage'
 import { SettingsPage } from './pages/SettingsPage'
@@ -121,6 +122,7 @@ export function App(): React.JSX.Element {
         </nav>
 
         <main className="main">
+          <UpdateBanner />
           {page === 'dashboard' && <DashboardPage />}
           {page === 'transactions' && <TransactionsPage searchFocusSignal={searchFocusSignal} />}
           {page === 'recurring' && <RecurringPage />}
@@ -130,6 +132,21 @@ export function App(): React.JSX.Element {
 
       <TransactionEditor request={editor} onClose={() => setEditor(null)} />
     </PortalProvider>
+  )
+}
+
+/** Appears only once an update has finished downloading. */
+function UpdateBanner(): React.JSX.Element | null {
+  const status = useUpdateStatus()
+  if (status?.state !== 'downloaded') return null
+  return (
+    <div className="update-banner" role="status">
+      <CatMascot mood="cheer" size={40} />
+      <span>MeowLife เวอร์ชัน {status.version} พร้อมติดตั้งแล้ว ข้อมูลของคุณจะอยู่ครบ</span>
+      <button type="button" className="btn btn-primary" onClick={() => void meow().updates.install()}>
+        รีสตาร์ทเพื่ออัปเดต
+      </button>
+    </div>
   )
 }
 

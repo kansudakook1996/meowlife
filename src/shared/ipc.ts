@@ -5,7 +5,8 @@ import type {
   MonthSummary,
   PaymentMethod,
   RecurringRule,
-  TransactionView
+  TransactionView,
+  UpdateStatus
 } from './types'
 import type { CategoryInput, RecurringInput, TransactionInput, TransactionQuery } from './schemas'
 
@@ -25,7 +26,15 @@ export const IPC = {
   recurringCreate: 'recurring:create',
   recurringUpdate: 'recurring:update',
   recurringRemove: 'recurring:remove',
-  summaryMonth: 'summary:month'
+  summaryMonth: 'summary:month',
+  updateGetStatus: 'update:getStatus',
+  updateCheck: 'update:check',
+  updateInstall: 'update:install'
+} as const
+
+/** Main → renderer push events (the only ones preload lets through). */
+export const IPC_EVENTS = {
+  updateStatus: 'update:status'
 } as const
 
 type R<T> = Promise<IpcResult<T>>
@@ -53,4 +62,12 @@ export interface MeowBridge {
     remove(id: string): R<void>
   }
   summary: { month(month: string): R<MonthSummary> }
+  updates: {
+    getStatus(): R<UpdateStatus>
+    check(): R<UpdateStatus>
+    /** Quit and install a downloaded update. */
+    install(): R<void>
+    /** Subscribe to status changes; returns an unsubscribe function. */
+    onStatus(listener: (status: UpdateStatus) => void): () => void
+  }
 }

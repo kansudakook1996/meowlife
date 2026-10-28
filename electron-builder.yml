@@ -15,6 +15,7 @@ win:
     - target: nsis
       arch: [x64]
   artifactName: MeowLife-Setup-${version}.${ext}
+  icon: build/icon.png
   # No code-signing certificate yet: Windows SmartScreen will warn on first install.
   # See docs/GITHUB_RELEASE_TH.md
 nsis:

@@ -1,18 +1,19 @@
 import { CatMascot } from '../components/CatMascot'
 import { meow, unwrap } from '../lib/api'
 import { useLoad } from '../lib/useLoad'
+import { describeUpdate, useUpdateStatus } from '../lib/useUpdateStatus'
 
 const ROADMAP = [
   'นำเข้า Excel/CSV และส่งออกข้อมูล',
   'สำรองและกู้คืนข้อมูล (Backup/Restore)',
   'รายงานและกราฟแนวโน้ม',
   'บัญชีผู้ใช้และซิงก์ข้ามเครื่อง (Firebase)',
-  'อัปเดตแอปอัตโนมัติ',
   'ปฏิทิน บันทึกประจำวัน สิ่งที่ต้องทำ เป้าหมาย นิสัย โน้ต'
 ]
 
 export function SettingsPage(): React.JSX.Element {
   const { data: info, error } = useLoad('info', () => unwrap(meow().app.info()))
+  const update = useUpdateStatus()
 
   return (
     <div className="page">
@@ -46,6 +47,32 @@ export function SettingsPage(): React.JSX.Element {
             และเปิด BitLocker/Device Encryption
           </p>
           <p className="muted small">เวอร์ชัน {info ? info.version : '…'}{info && !info.isPackaged ? ' (โหมดพัฒนา)' : ''}</p>
+        </div>
+      </section>
+
+      <section className="card" aria-labelledby="update-title">
+        <div className="card-title">
+          <h2 id="update-title">🔄 อัปเดตแอป</h2>
+        </div>
+        <div className="form">
+          <p aria-live="polite">{update ? describeUpdate(update) : '…'}</p>
+          <p className="muted small">แอปจะตรวจเวอร์ชันใหม่จาก GitHub ให้เองทุกครั้งที่เปิด และข้อมูลของคุณจะไม่หายเมื่ออัปเดต</p>
+          <div className="toolbar">
+            {update?.state === 'downloaded' ? (
+              <button type="button" className="btn btn-primary" onClick={() => void meow().updates.install()}>
+                รีสตาร์ทเพื่ออัปเดต
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={!update || update.state === 'disabled' || update.state === 'checking' || update.state === 'downloading'}
+                onClick={() => void meow().updates.check()}
+              >
+                ตรวจหาเวอร์ชันใหม่
+              </button>
+            )}
+          </div>
         </div>
       </section>
 

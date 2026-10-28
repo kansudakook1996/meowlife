@@ -1,9 +1,8 @@
 # คู่มือ GitHub, Release และ Auto-update
 
-> **สถานะ (2026-10-28)**: มี Git ในเครื่องและ commit แรกแล้ว / ขั้นที่ 3 (อีเมล noreply) ทำแล้ว /
-> ยังไม่ได้เชื่อม GitHub Repository (ยังไม่มี remote) /
-> ไฟล์ workflow `.github/workflows/ci.yml` และ `release.yml` เขียนไว้แล้วแต่**ยังไม่เคยรันบน GitHub** /
-> โค้ด Auto-update ในแอปยังไม่ได้เขียน (Milestone 5)
+> **สถานะ (2026-10-28)**: ขั้นที่ 1–5 ทำแล้ว — repo Public `kansudakook1996/meowlife`,
+> push `main` แล้ว, CI บน GitHub ผ่าน (รวม E2E) / ระบบ Auto-update ในแอปเขียนแล้ว /
+> ขั้นที่ 6–8 ดูสถานะล่าสุดใน `docs/PROJECT_STATUS.md`
 
 ## Public หรือ Private Repository?
 | | Public | Private |
@@ -100,7 +99,7 @@ git push
 - ผู้ใช้ตรวจไม่ได้ว่าไฟล์มาจากคุณจริง — แจกเฉพาะจากหน้า Releases ของคุณเท่านั้น
 - Code Signing Certificate มีค่าใช้จ่ายรายปี (ตัวเลือก: Azure Trusted Signing, OV/EV certificate) — ยังไม่จำเป็นสำหรับใช้เอง
 
-## ขั้นที่ 8 — ทดสอบ Auto-update (หลัง M5)
+## ขั้นที่ 8 — ทดสอบ Auto-update
 1. ติดตั้ง v0.1.0 จาก Releases แล้วเพิ่มรายการทดสอบ 2–3 รายการ
 2. ออก v0.1.1 ตามขั้นที่ 6
 3. เปิด v0.1.0 → แอปแจ้ง "มีเวอร์ชันใหม่" → กดอัปเดต → แอปรีสตาร์ท

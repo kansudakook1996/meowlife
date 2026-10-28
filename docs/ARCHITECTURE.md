@@ -62,6 +62,16 @@
   `sync_conflicts` และแจ้งผู้ใช้ ไม่ทิ้งเงียบ ๆ
 - Retry: exponential backoff (5s, 15s, 60s, 5m) และแสดงสถานะ "ออฟไลน์ / กำลังซิงก์ / ล่าสุดเมื่อ…"
 
+## Auto-update (`src/main/updater.ts`)
+- ทำงานเฉพาะแอปที่ติดตั้งแล้ว (`app.isPackaged`); โหมดพัฒนาแสดงสถานะ `disabled`
+- แหล่งอัปเดต: GitHub Releases แบบ Public ของ `kansudakook1996/meowlife` (ตั้งใน `electron-builder.yml → publish`)
+  ไม่ต้องมี Token ในแอป
+- ตรวจหลังเปิดแอป 10 วินาที และทุก 6 ชั่วโมง → ดาวน์โหลดเบื้องหลัง → ส่งสถานะผ่าน event `update:status`
+  → renderer แสดงแถบ "รีสตาร์ทเพื่ออัปเดต" (หรือติดตั้งเองตอนปิดแอป)
+- ข้อมูลผู้ใช้อยู่ `%APPDATA%\MeowLife` ซึ่งตัวอัปเดต NSIS ไม่แตะ
+- เมื่อเวอร์ชันใหม่มี migration: `openDatabase` ทำสำเนา `backups/pre-migration-v{N}-{เวลา}.db` ด้วย
+  `VACUUM INTO` ก่อน migrate เสมอ
+
 ## Build
 - `electron-vite` build 3 ส่วน → `out/main`, `out/preload`, `out/renderer`
 - `electron-builder` (NSIS) → `dist/MeowLife-Setup-x.y.z.exe`

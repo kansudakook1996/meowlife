@@ -2,6 +2,7 @@ import { join } from 'node:path'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { openDatabase, type Db } from './db/connection'
 import { registerIpcHandlers } from './ipc/handlers'
+import { startAutoUpdates } from './updater'
 
 // Keep development data apart from real data so testing never touches the user's records.
 // E2E tests point MEOWLIFE_USER_DATA at a throwaway folder. Ignored in the installed app.
@@ -74,6 +75,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     registerIpcHandlers(db, userData)
     createWindow()
+    startAutoUpdates()
   })
 
   app.on('window-all-closed', () => {

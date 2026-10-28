@@ -38,3 +38,6 @@ Thumbs.db
 !.vscode/extensions.json
 .idea/
 *.log
+
+# Private design reference images (may be third-party artwork) - keep local only
+picture ref/

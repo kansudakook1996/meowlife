@@ -619,6 +619,22 @@ dialog.modal::backdrop {
   background: rgba(255, 255, 255, 0.18);
 }
 
+.update-banner {
+  max-width: 1100px;
+  margin: 0 auto 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: var(--yellow-100);
+  border: 2px solid var(--yellow-300);
+}
+.update-banner span {
+  flex: 1 1 240px;
+}
+
 /* ---------- Empty state ---------- */
 .empty {
   display: flex;
