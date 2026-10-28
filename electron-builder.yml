@@ -26,8 +26,9 @@ nsis:
   shortcutName: MeowLife
   # Keep the user's data (%APPDATA%\MeowLife) when uninstalling or updating.
   deleteAppDataOnUninstall: false
-# Auto-update source. Set owner/repo after creating the GitHub repository (M5).
-# publish:
-#   provider: github
-#   owner: <github-username>
-#   repo: meowlife
+# Auto-update source: public GitHub Releases (no token needed to download updates).
+publish:
+  provider: github
+  owner: kansudakook1996
+  repo: meowlife
+  releaseType: release

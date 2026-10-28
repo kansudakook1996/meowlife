@@ -6,6 +6,10 @@
   "author": "kansu",
   "license": "UNLICENSED",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kansudakook1996/meowlife.git"
+  },
   "main": "./out/main/index.js",
   "engines": {
     "node": ">=24"
