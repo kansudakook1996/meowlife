@@ -35,5 +35,5 @@ npm run dev
 - [Decisions (ADR)](docs/decisions/) · [CHANGELOG](CHANGELOG.md)
 
 ## ลิขสิทธิ์ส่วนประกอบ
-- ฟอนต์ Mali และ Sarabun — SIL Open Font License 1.1 (Cadson Demak)
+- ฟอนต์ IBM Plex Sans Thai — SIL Open Font License 1.1 (IBM)
 - ภาพแมว "โมจิ" — วาดขึ้นใหม่สำหรับโปรเจกต์นี้ (`src/renderer/src/components/CatMascot.tsx`)

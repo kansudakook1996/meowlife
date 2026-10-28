@@ -38,7 +38,7 @@ jobs:
           node scripts/release-notes.cjs "${GITHUB_REF_NAME#v}" > release-notes.md
           gh release create "$GITHUB_REF_NAME" --draft --title "MeowLife ${GITHUB_REF_NAME#v}" --notes-file release-notes.md
       - name: Build installer and upload to the draft
-        run: npx electron-builder --win --publish always -c.publish.releaseType=draft
+        run: npx electron-builder --win --publish always
       - name: Publish the release
         shell: bash
         run: |

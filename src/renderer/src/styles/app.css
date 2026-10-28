@@ -15,10 +15,10 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 17px;
+  font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
-  /* The hand-drawn font has only a Regular weight; fake bold makes Thai letters smudge. */
+  /* Only 400 and 600 are bundled; never fake other weights. */
   font-synthesis-weight: none;
 }
 

@@ -15,7 +15,7 @@
 | Test | Vitest 5.0.5 (unit), Playwright 1.64.1 (E2E กับ Electron จริง) | |
 | Lint | ESLint 10 + typescript-eslint 8.72 + react-hooks 7 | |
 | Package | electron-builder 26.18.0 (NSIS) + electron-updater 6.8.11 | ตามที่กำหนดในโจทย์ |
-| ฟอนต์ | @fontsource/mali, @fontsource/sarabun (SIL OFL 1.1) | ฝังในแอป ทำงานออฟไลน์ |
+| ฟอนต์ | @fontsource/ibm-plex-sans-thai (SIL OFL 1.1) — เจ้าของเลือก 2026-10-28 แทน Mali/Sarabun | ฝังในแอป ทำงานออฟไลน์ |
 
 ## ทางเลือกที่ไม่ได้เลือก
 - **Electron Forge**: ดี แต่โจทย์กำหนด electron-builder + electron-updater และ electron-vite เข้ากันได้ตรงกว่า

@@ -1,34 +1,33 @@
 # Project Status
 
-อัปเดตล่าสุด: 2026-10-28 · เวอร์ชัน 0.1.0 (ยังไม่ออก Release) · **ยังไม่ใช่ Production-ready**
+อัปเดตล่าสุด: 2026-10-28 · เวอร์ชันในโค้ด 0.1.2 · Release บน GitHub: v0.1.0, v0.1.1 · **ยังไม่ใช่ Production-ready**
 
 ## Roadmap
 | Milestone | เนื้อหา | สถานะ |
 |---|---|---|
 | **M0** โครงโปรเจกต์ | Electron + React + TS + Vite, lint/test/build, เอกสาร Context, ADR | ✅ เสร็จ |
-| **M1** แกนบัญชี | SQLite + migration, รายการ CRUD/ค้นหา/กรอง, สถานะ, Dashboard, รายการประจำ, UI ไทย + แมว | ✅ เสร็จ (ดูข้อจำกัดด้านล่าง) |
+| **M1** แกนบัญชี | SQLite + migration, รายการ CRUD/ค้นหา/กรอง, สถานะ, Dashboard, รายการประจำ, UI ไทย + แมว | ✅ เสร็จ |
+| **M5** Release + Update | ไอคอน, GitHub repo, CI, Release จาก tag, electron-updater, สำรอง DB ก่อน migration | ✅ ส่วนใหญ่เสร็จ (ดู "ทดสอบอัปเดต" ใน TEST_PLAN) |
 | **M2** ข้อมูลเข้า-ออก | นำเข้า Excel/CSV (Preview, Validation, กันซ้ำ, รายงานข้อผิดพลาด), Export CSV, Backup/Restore, จัดการหมวดหมู่ | ⏭️ ถัดไป |
 | **M3** รายงาน | รายงานรายเดือน, กราฟหมวดหมู่, แนวโน้ม 6–12 เดือน | ⏳ |
 | **M4** บัญชี + Sync | Firebase Auth, Firestore sync, Retry, Conflict, Rules + Emulator tests | ⏳ (รอ Firebase project) |
-| **M5** Release + Update | ไอคอนแอป, GitHub repo, CI จริง, Release จาก tag, electron-updater, ทดสอบอัปเดตข้อมูลไม่หาย | ⏳ (รอ GitHub repo) |
 | **M6+** Personal Portal | Calendar, Journal, Tasks, Goals, Habits, Notes, Insights, Reminder, Cat Companion, Settings | ⏳ |
 
 ## เสร็จแล้ว (ตรวจสอบจริง)
-- `npm run verify` ผ่าน (lint, typecheck 3 configs, 53 unit tests, build)
-- `npm run test:e2e` ผ่าน 2 tests บน Electron จริง
-- `npm run dist` สร้าง `dist/MeowLife-Setup-0.1.0.exe` ได้ และแอปที่แพ็กแล้วเปิดได้ (smoke test)
+- `npm run verify` ผ่าน (lint, typecheck 3 configs, 55 unit tests, build)
+- E2E 3 tests ผ่าน (บัญชี, รายการประจำ, เลย์เอาต์ 900×600) ทั้งในเครื่องและบน GitHub Actions
+- GitHub: repo Public `kansudakook1996/meowlife`, CI ผ่าน, Release v0.1.0 สร้างอัตโนมัติจาก tag
+- ติดตั้ง v0.1.0 จาก Release จริงบนเครื่องเจ้าของ (`C:\Program Files\MeowLife`) และเปิดใช้งานได้
+- ฟอนต์ "Lmf_ Wanpharuehat Demo" ติดตั้งให้เฉพาะบัญชี Windows ของเจ้าของ (ไม่แจกต่อ)
 
-## ยังไม่ได้ทำ / ยังไม่ได้ทดสอบ
-- ยังไม่ได้รันตัวติดตั้ง `.exe` จริงบนเครื่อง (สร้างไฟล์แล้วเท่านั้น)
-- ยังไม่มีไอคอนแอป (ใช้ไอคอน Electron เริ่มต้น)
-- ยังไม่มีหน้าจัดการหมวดหมู่/ช่องทางชำระ (มี API สร้างหมวดแล้ว แต่ยังไม่มี UI)
-- ยังไม่มีการตั้งค่า (ธีม, รูปแบบวันที่, จำนวนวัน "ใกล้ครบกำหนด")
-- GitHub Actions ยังไม่เคยรัน (ยังไม่มี repo)
-- ยังไม่ได้ทดสอบที่หน้าต่างขนาดเล็กสุด 900×600 และการใช้คีย์บอร์ดทั้งหน้า
-- Renderer bundle ~650 KB ยังไม่ได้ปรับขนาด
+## ยังไม่ได้ทำ / ข้อจำกัด
+- Release v0.1.0 มี 2 อันซ้ำกัน (บั๊กของ workflow เดิม แก้แล้วใน v0.1.1+) — อันที่มีแค่ `.blockmap` ต้องลบด้วยมือ
+- ตัวติดตั้งไม่ได้ Code Sign → SmartScreen เตือน
+- ติดตั้งแบบเงียบ (`/S`) ลงแบบทุกผู้ใช้ (Program Files) → การอัปเดตอาจถาม UAC
+- ยังไม่มีหน้าจัดการหมวดหมู่/ช่องทางชำระ, หน้าตั้งค่าธีม/รูปแบบวันที่
+- ยังไม่ได้ไล่ใช้คีย์บอร์ดทั้งหน้าด้วยมือ
 
 ## ติดขัด / รอเจ้าของโปรเจกต์
 1. **ภาพ/ไฟล์ Excel เดิม** — ยังไม่ได้รับ (ต้องใช้ออกแบบการนำเข้าใน M2)
-2. **GitHub account + repo** — ทำตาม `GITHUB_RELEASE_TH.md` ขั้นที่ 1–3
+2. **ลบ Release v0.1.0 ที่ซ้ำ** — อันที่มีแค่ `MeowLife-Setup-0.1.0.exe.blockmap`
 3. **Firebase project** — ทำตาม `FIREBASE_SETUP_TH.md` ขั้นที่ 1–5
-4. ~~อีเมลใน commit~~ — ✅ เปลี่ยนเป็นอีเมล noreply ของ GitHub แล้ว (2026-10-28) พร้อม push ได้

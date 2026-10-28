@@ -35,10 +35,6 @@
   --shadow: 0 4px 16px rgba(160, 47, 92, 0.12);
   --focus: 3px solid var(--blue-600);
 
-  /*
-   * "Lmf_ Wanpharuehat Demo" is installed only on the owner's PC (demo licence — not bundled,
-   * not in Git). Other machines fall back to the bundled OFL fonts Mali / Sarabun.
-   */
-  --font-display: 'Lmf_ Wanpharuehat Demo', 'Mali', 'Sarabun', 'Leelawadee UI', sans-serif;
-  --font-body: 'Lmf_ Wanpharuehat Demo', 'Sarabun', 'Leelawadee UI', 'Tahoma', sans-serif;
+  --font-display: 'IBM Plex Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
+  --font-body: 'IBM Plex Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
 }

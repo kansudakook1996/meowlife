@@ -32,4 +32,6 @@ publish:
   provider: github
   owner: kansudakook1996
   repo: meowlife
-  releaseType: release
+  # The Release workflow creates the draft (with Thai notes), electron-builder uploads into it,
+  # then the workflow publishes it. Local `npm run dist` uses --publish never.
+  releaseType: draft
