@@ -21,7 +21,7 @@ function createWindow(): void {
     minHeight: 600,
     show: false,
     title: 'MeowLife',
-    backgroundColor: '#FFF9FB',
+    backgroundColor: '#FFF1F6',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

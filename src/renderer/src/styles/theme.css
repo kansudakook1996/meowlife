@@ -1,30 +1,30 @@
 /* Design tokens — see docs/UX_GUIDELINES.md. Components use only these variables. */
 :root {
-  --pink-50: #fff5f9;
-  --pink-100: #ffe4ee;
-  --pink-300: #ffb3cc;
-  --pink-500: #e85d8f;
-  --pink-700: #b23a68;
-  --yellow-100: #fff6d6;
-  --yellow-300: #ffe08a;
-  --yellow-600: #8a6400;
-  --blue-100: #e3f2ff;
-  --blue-300: #a9d4ff;
-  --blue-600: #2f6fb0;
-  --green-100: #e3f7ea;
-  --green-600: #237a46;
-  --red-100: #ffe6e3;
-  --red-600: #b3261e;
-  --gray-100: #f3eef3;
-  --gray-300: #ddd3dd;
+  --pink-50: #ffeef5;
+  --pink-100: #ffd3e3;
+  --pink-300: #ff9cbd;
+  --pink-500: #c93d72; /* white text on it: 4.8:1 */
+  --pink-700: #a02f5c;
+  --yellow-100: #ffeeb8;
+  --yellow-300: #ffd35c;
+  --yellow-600: #7a5800;
+  --blue-100: #d2e9ff;
+  --blue-300: #8cc4fb;
+  --blue-600: #24609e;
+  --green-100: #d2f1dd;
+  --green-600: #1d6b3d;
+  --red-100: #ffd8d3;
+  --red-600: #a8231b;
+  --gray-100: #ece4ec;
+  --gray-300: #d2c5d2;
 
-  --bg: #fff9fb;
+  --bg: #fff1f6;
   --surface: #ffffff;
-  --text: #3a2e39;
-  --text-muted: #6e6170;
-  --border: #f0dfe7;
+  --text: #33272f;
+  --text-muted: #554558;
+  --border: #ecd0dd;
   --cat-fur: #fff4e8;
-  --cat-line: #3a2e39;
+  --cat-line: #33272f;
 
   --income: var(--blue-600);
   --expense: var(--pink-700);
@@ -32,9 +32,13 @@
   --radius-sm: 10px;
   --radius: 16px;
   --radius-lg: 24px;
-  --shadow: 0 4px 16px rgba(178, 58, 104, 0.08);
+  --shadow: 0 4px 16px rgba(160, 47, 92, 0.12);
   --focus: 3px solid var(--blue-600);
 
-  --font-display: 'Mali', 'Sarabun', 'Leelawadee UI', sans-serif;
-  --font-body: 'Sarabun', 'Leelawadee UI', 'Tahoma', sans-serif;
+  /*
+   * "Lmf_ Wanpharuehat Demo" is installed only on the owner's PC (demo licence — not bundled,
+   * not in Git). Other machines fall back to the bundled OFL fonts Mali / Sarabun.
+   */
+  --font-display: 'Lmf_ Wanpharuehat Demo', 'Mali', 'Sarabun', 'Leelawadee UI', sans-serif;
+  --font-body: 'Lmf_ Wanpharuehat Demo', 'Sarabun', 'Leelawadee UI', 'Tahoma', sans-serif;
 }

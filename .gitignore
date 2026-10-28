@@ -41,3 +41,12 @@ Thumbs.db
 
 # Private design reference images (may be third-party artwork) - keep local only
 picture ref/
+
+# Locally licensed fonts (e.g. demo fonts) must never be committed or bundled
+*.zip
+*.ttf
+*.otf
+fonts-local/
+
+# Temporary manual tests against the installed app
+e2e/zz-*
