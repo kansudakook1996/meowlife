@@ -1,0 +1,171 @@
+import { useEffect, useState, type FormEvent } from 'react'
+import { describeFirebaseError } from '@shared/firebaseErrors'
+import type { AccountUser, ConnectionCheck } from '../lib/firebase'
+import { isFirebaseConfigured } from '../lib/firebaseConfig'
+
+type FirebaseModule = typeof import('../lib/firebase')
+
+const ICON: Record<ConnectionCheck['state'], string> = { ok: '✓', fail: '!', warn: '⏰' }
+const BADGE: Record<ConnectionCheck['state'], string> = { ok: 'badge-paid', fail: 'badge-overdue', warn: 'badge-due_soon' }
+
+/** Online account (Firebase) — sign in / sign up and a connection + rules self-test. */
+export function AccountCard(): React.JSX.Element {
+  const [fb, setFb] = useState<FirebaseModule | null>(null)
+  const [user, setUser] = useState<AccountUser | null | undefined>(undefined)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!isFirebaseConfigured) return
+    let unsubscribe: (() => void) | undefined
+    let active = true
+    import('../lib/firebase').then(
+      (mod) => {
+        if (!active) return
+        setFb(mod)
+        unsubscribe = mod.watchUser((u) => setUser(u))
+      },
+      () => setLoadError('โหลดระบบบัญชีออนไลน์ไม่สำเร็จ')
+    )
+    return () => {
+      active = false
+      unsubscribe?.()
+    }
+  }, [])
+
+  return (
+    <section className="card" aria-labelledby="account-title">
+      <div className="card-title">
+        <h2 id="account-title">☁️ บัญชีออนไลน์ (ทดลอง)</h2>
+      </div>
+      {!isFirebaseConfigured ? (
+        <p className="info">ยังไม่ได้ตั้งค่า Firebase ในแอปนี้ (คู่มือ FIREBASE_SETUP_TH.md ขั้นที่ 6)</p>
+      ) : loadError ? (
+        <p className="alert">{loadError}</p>
+      ) : !fb || user === undefined ? (
+        <p className="muted">กำลังตรวจสถานะบัญชี…</p>
+      ) : user ? (
+        <SignedIn fb={fb} user={user} />
+      ) : (
+        <SignInForm fb={fb} />
+      )}
+      <p className="muted small" style={{ marginTop: 10 }}>
+        ตอนนี้ใช้ทดสอบการเชื่อมต่อเท่านั้น ข้อมูลรายรับรายจ่ายยังเก็บในเครื่องอย่างเดียว ยังไม่ซิงก์ขึ้นออนไลน์
+      </p>
+    </section>
+  )
+}
+
+function SignInForm({ fb }: { fb: FirebaseModule }): React.JSX.Element {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ tone: 'alert' | 'info'; text: string } | null>(null)
+
+  const run = async (action: 'in' | 'up' | 'reset'): Promise<void> => {
+    if (!email.trim()) return setMessage({ tone: 'alert', text: 'กรุณาใส่อีเมล' })
+    if (action !== 'reset' && !password) return setMessage({ tone: 'alert', text: 'กรุณาใส่รหัสผ่าน' })
+    setBusy(true)
+    setMessage(null)
+    try {
+      if (action === 'in') await fb.signIn(email.trim(), password)
+      if (action === 'up') await fb.signUp(email.trim(), password)
+      if (action === 'reset') {
+        await fb.resetPassword(email.trim())
+        setMessage({ tone: 'info', text: 'ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่อีเมลแล้ว (ถ้ามีบัญชีนี้อยู่)' })
+      }
+    } catch (error) {
+      setMessage({ tone: 'alert', text: describeFirebaseError(error) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const submit = (e: FormEvent): void => {
+    e.preventDefault()
+    void run('in')
+  }
+
+  return (
+    <form className="form" onSubmit={submit} noValidate>
+      {message && (
+        <p className={message.tone} role={message.tone === 'alert' ? 'alert' : 'status'}>
+          {message.text}
+        </p>
+      )}
+      <div className="field-row">
+        <div className="field">
+          <label htmlFor="acc-email">อีเมล</label>
+          <input id="acc-email" className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="acc-password">รหัสผ่าน (อย่างน้อย 6 ตัว)</label>
+          <input
+            id="acc-password"
+            className="input"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="toolbar">
+        <button type="submit" className="btn btn-primary" disabled={busy}>
+          เข้าสู่ระบบ
+        </button>
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void run('up')}>
+          สร้างบัญชีใหม่
+        </button>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => void run('reset')}>
+          ลืมรหัสผ่าน
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function SignedIn({ fb, user }: { fb: FirebaseModule; user: AccountUser }): React.JSX.Element {
+  const [checks, setChecks] = useState<ConnectionCheck[] | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const test = async (): Promise<void> => {
+    setBusy(true)
+    setChecks(null)
+    try {
+      setChecks(await fb.testConnection())
+    } catch (error) {
+      setChecks([{ label: 'ทดสอบ', state: 'fail', detail: describeFirebaseError(error) }])
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="form">
+      <p>
+        เข้าสู่ระบบเป็น <strong>{user.email}</strong>
+      </p>
+      <div className="toolbar">
+        <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void test()}>
+          {busy ? 'กำลังทดสอบ…' : 'ทดสอบการเชื่อมต่อ'}
+        </button>
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void fb.logOut()}>
+          ออกจากระบบ
+        </button>
+      </div>
+      {checks && (
+        <ul className="bar-list" aria-label="ผลการทดสอบ" aria-live="polite">
+          {checks.map((c) => (
+            <li key={c.label}>
+              <span className={`badge ${BADGE[c.state]}`}>
+                <span aria-hidden="true">{ICON[c.state]}</span> {c.label}
+              </span>{' '}
+              {c.detail}
+              {c.code && <span className="muted small"> — {describeFirebaseError({ code: c.code })}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}

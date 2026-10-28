@@ -1,4 +1,4 @@
-# Dependencies & build output
+﻿# Dependencies & build output
 node_modules/
 out/
 dist/
@@ -7,8 +7,7 @@ test-results/
 playwright-report/
 *.tsbuildinfo
 
-# Secrets — never commit
-.env
+# Secrets — never commit (.env holds only the public Firebase web config and IS committed)
 .env.local
 .env.*.local
 *.pem

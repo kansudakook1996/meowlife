@@ -1,3 +1,4 @@
+import { AccountCard } from '../components/AccountCard'
 import { CatMascot } from '../components/CatMascot'
 import { meow, unwrap } from '../lib/api'
 import { useLoad } from '../lib/useLoad'
@@ -7,7 +8,7 @@ const ROADMAP = [
   'นำเข้า Excel/CSV และส่งออกข้อมูล',
   'สำรองและกู้คืนข้อมูล (Backup/Restore)',
   'รายงานและกราฟแนวโน้ม',
-  'บัญชีผู้ใช้และซิงก์ข้ามเครื่อง (Firebase)',
+  'ซิงก์ข้อมูลรายรับรายจ่ายข้ามเครื่อง (Firebase)',
   'ปฏิทิน บันทึกประจำวัน สิ่งที่ต้องทำ เป้าหมาย นิสัย โน้ต'
 ]
 
@@ -49,6 +50,8 @@ export function SettingsPage(): React.JSX.Element {
           <p className="muted small">เวอร์ชัน {info ? info.version : '…'}{info && !info.isPackaged ? ' (โหมดพัฒนา)' : ''}</p>
         </div>
       </section>
+
+      <AccountCard />
 
       <section className="card" aria-labelledby="update-title">
         <div className="card-title">

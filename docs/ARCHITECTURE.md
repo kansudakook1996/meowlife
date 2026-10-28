@@ -54,6 +54,11 @@
 ใครที่เข้าถึงบัญชี Windows ของคุณได้ก็เปิดอ่านไฟล์ได้ การป้องกันหลักคือรหัสผ่าน Windows
 และ BitLocker/Device Encryption ของเครื่อง การเข้ารหัสฐานข้อมูลอาจพิจารณาในอนาคต (ต้องมี ADR)
 
+## Firebase (ADR 0005)
+- `src/renderer/src/lib/firebase.ts` (โหลดแบบ lazy) — Auth (อีเมล/รหัสผ่าน, จำการล็อกอินด้วย IndexedDB) + Firestore
+- `src/renderer/src/components/AccountCard.tsx` — UI บัญชี + ปุ่มทดสอบการเชื่อมต่อ (`users/{uid}/meta/connection`)
+- Config จาก `.env` (`RENDERER_VITE_FIREBASE_*`, สาธารณะ) / CSP เปิดเฉพาะ 3 host ของ Google
+
 ## Sync (ออกแบบไว้ ทำใน M4)
 - Local-first: SQLite คือแหล่งความจริงในเครื่อง ทุกการแก้ไขตั้ง `dirty = 1`, `updated_at = now`
 - Push: ส่งแถว dirty ไป `users/{uid}/{collection}/{id}` แล้วล้าง dirty

@@ -17,9 +17,9 @@ interface DashboardData {
 function catMessage(s: MonthSummary): { mood: CatMood; text: string } {
   if (s.itemCount === 0) return { mood: 'sleepy', text: 'เดือนนี้ยังว่างอยู่เลย เริ่มจดรายการแรกกันไหม?' }
   if (s.overdueCount > 0) return { mood: 'worried', text: `มีบิลเลยกำหนด ${s.overdueCount} รายการ ค่อย ๆ จัดการทีละอย่างนะ` }
-  if (s.dueSoonCount > 0) return { mood: 'happy', text: `อีกไม่กี่วันมีบิลครบกำหนด ${s.dueSoonCount} รายการ โมจิช่วยเตือนไว้ก่อนนะ` }
+  if (s.dueSoonCount > 0) return { mood: 'happy', text: `อีกไม่กี่วันมีบิลครบกำหนด ${s.dueSoonCount} รายการ โมจิกับส้มโอช่วยเตือนไว้ก่อนนะ` }
   if (s.balance < 0) return { mood: 'happy', text: 'เดือนนี้ใช้มากกว่ารายรับนิดหน่อย ค่อย ๆ ปรับกันนะ' }
-  return { mood: 'cheer', text: 'เก่งมาก! จดรายการต่อเนื่องแบบนี้ โมจิภูมิใจในตัวคุณ' }
+  return { mood: 'cheer', text: 'เก่งมาก! จดรายการต่อเนื่องแบบนี้ โมจิกับส้มโอภูมิใจในตัวคุณ' }
 }
 
 export function DashboardPage(): React.JSX.Element {
@@ -55,8 +55,8 @@ export function DashboardPage(): React.JSX.Element {
 
       {s && cat && (
         <>
-          <section className="greeting" aria-label="ข้อความจากโมจิ">
-            <CatMascot mood={cat.mood} size={72} />
+          <section className="greeting" aria-label="ข้อความจากโมจิกับส้มโอ">
+            <CatMascot mood={cat.mood} size={96} />
             <p>{cat.text}</p>
           </section>
 

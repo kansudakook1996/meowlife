@@ -67,7 +67,7 @@ p {
 }
 
 .sidebar {
-  background: linear-gradient(180deg, var(--pink-100), var(--yellow-100) 60%, var(--blue-100));
+  background: linear-gradient(180deg, var(--yellow-300), var(--yellow-100) 45%, var(--cream));
   padding: 20px 14px;
   display: flex;
   flex-direction: column;
@@ -85,7 +85,7 @@ p {
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 600;
-  color: var(--pink-700);
+  color: var(--primary);
 }
 
 .nav-section {
@@ -116,7 +116,7 @@ p {
   background: var(--surface);
   box-shadow: var(--shadow);
   font-weight: 600;
-  color: var(--pink-700);
+  color: var(--primary);
 }
 .nav-item[aria-disabled='true'] {
   cursor: not-allowed;
@@ -186,19 +186,19 @@ p {
   cursor: not-allowed;
 }
 .btn-primary {
-  background: var(--pink-500);
+  background: var(--primary);
   color: #fff;
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--pink-700);
+  background: var(--primary-hover);
 }
 .btn-secondary {
   background: var(--surface);
-  border-color: var(--pink-300);
-  color: var(--pink-700);
+  border-color: var(--orange-300);
+  color: var(--primary);
 }
 .btn-secondary:hover:not(:disabled) {
-  background: var(--pink-50);
+  background: var(--orange-50);
 }
 .btn-danger {
   background: var(--red-600);
@@ -280,7 +280,7 @@ p {
 }
 .summary-outstanding {
   background: var(--surface);
-  border-color: var(--pink-300);
+  border-color: var(--orange-300);
 }
 .negative {
   color: var(--red-600);
@@ -447,7 +447,7 @@ p {
   color: var(--text);
 }
 .segmented button[aria-pressed='true'] {
-  background: var(--pink-500);
+  background: var(--primary);
   color: #fff;
   font-weight: 600;
 }
@@ -476,7 +476,7 @@ p {
 .bar-fill {
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--pink-300), var(--pink-500));
+  background: linear-gradient(90deg, var(--orange-300), var(--orange-700));
 }
 
 /* ---------- Forms ---------- */
@@ -535,7 +535,7 @@ textarea.input {
 .check input {
   width: 20px;
   height: 20px;
-  accent-color: var(--pink-500);
+  accent-color: var(--primary);
 }
 details.more summary {
   cursor: pointer;
@@ -679,18 +679,7 @@ dialog.modal::backdrop {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .cat-tail {
-    transform-origin: 24px 92px;
-    animation: tail 3.5s ease-in-out infinite;
-  }
-  @keyframes tail {
-    0%,
-    100% {
-      transform: rotate(0deg);
-    }
-    50% {
-      transform: rotate(8deg);
-    }
-  }
+.brand-logo {
+  border-radius: 14px;
+  box-shadow: var(--shadow);
 }

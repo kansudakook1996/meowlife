@@ -1,6 +1,7 @@
 rules_version = '2';
 
-// MeowLife Firestore Security Rules (draft for M4 — test with the emulator before publishing).
+// MeowLife Firestore Security Rules. Paste into Firebase console → Firestore → Rules → Publish.
+// The in-app "ทดสอบการเชื่อมต่อ" button checks that these are active.
 // Each user can only read/write documents under users/{their own uid}.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -14,7 +15,8 @@ service cloud.firestore {
     }
 
     function allowedCollection(name) {
-      return name in ['transactions', 'categories', 'payment_methods', 'recurring_rules'];
+      // 'meta' holds the in-app connection test document (users/{uid}/meta/connection).
+      return name in ['transactions', 'categories', 'payment_methods', 'recurring_rules', 'meta'];
     }
 
     function validDoc(docId) {

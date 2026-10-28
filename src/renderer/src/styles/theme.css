@@ -1,30 +1,50 @@
-/* Design tokens — see docs/UX_GUIDELINES.md. Components use only these variables. */
+/*
+ * Design tokens — see docs/UX_GUIDELINES.md. Components use only these variables.
+ * Palette inspired by the owner's app icon (white + orange cats on warm yellow, cream, dark brown).
+ */
 :root {
-  --pink-50: #ffeef5;
-  --pink-100: #ffd3e3;
-  --pink-300: #ff9cbd;
-  --pink-500: #c93d72; /* white text on it: 4.8:1 */
+  /* brand */
+  --yellow-100: #fff1c2;
+  --yellow-300: #ffd54f;
+  --yellow-600: #7a5300;
+  --orange-50: #fff4e8;
+  --orange-100: #ffe3c7;
+  --orange-300: #f7a55a;
+  --orange-500: #e98a2e; /* the orange cat */
+  --orange-700: #b4530f; /* white text on it: 5.0:1 */
+  --orange-800: #8f400a;
+  --cream: #fff8ec;
+  --brown: #4a2c21;
+
+  --primary: var(--orange-700);
+  --primary-hover: var(--orange-800);
+
+  /* meaning colors (status, income/expense) */
+  --pink-100: #ffd9e4;
+  --pink-300: #f7a6bd;
   --pink-700: #a02f5c;
-  --yellow-100: #ffeeb8;
-  --yellow-300: #ffd35c;
-  --yellow-600: #7a5800;
-  --blue-100: #d2e9ff;
+  --blue-100: #d6ebff;
   --blue-300: #8cc4fb;
   --blue-600: #24609e;
-  --green-100: #d2f1dd;
+  --green-100: #d6f2df;
   --green-600: #1d6b3d;
-  --red-100: #ffd8d3;
+  --red-100: #ffdad4;
   --red-600: #a8231b;
-  --gray-100: #ece4ec;
-  --gray-300: #d2c5d2;
+  --gray-100: #f1e9e0;
+  --gray-300: #dccfbf;
 
-  --bg: #fff1f6;
+  --bg: var(--cream);
   --surface: #ffffff;
-  --text: #33272f;
-  --text-muted: #554558;
-  --border: #ecd0dd;
-  --cat-fur: #fff4e8;
-  --cat-line: #33272f;
+  --text: var(--brown);
+  --text-muted: #6b5246;
+  --border: #f0dfc6;
+  --cat-white: #ffffff;
+  --cat-white-shade: #e6d6c4;
+  --cat-orange: var(--orange-500);
+  --cat-orange-stripe: #d06a17;
+  --cat-ear: #f7a6a6;
+  --cat-eye: var(--brown);
+  --cat-eye-ring: #f5c842;
 
   --income: var(--blue-600);
   --expense: var(--pink-700);
@@ -32,7 +52,7 @@
   --radius-sm: 10px;
   --radius: 16px;
   --radius-lg: 24px;
-  --shadow: 0 4px 16px rgba(160, 47, 92, 0.12);
+  --shadow: 0 4px 16px rgba(74, 44, 33, 0.1);
   --focus: 3px solid var(--blue-600);
 
   --font-display: 'IBM Plex Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;

@@ -1,5 +1,38 @@
 # Session Handoff
 
+## Session 1 (ต่อ) — 2026-10-28 (GitHub, Release, Auto-update, ฟอนต์/สี, Firebase ขั้น 6–8)
+
+### สิ่งที่ทำ
+- อีเมล commit เป็น noreply; repo Public `kansudakook1996/meowlife`; push ครั้งแรกผ่าน Terminal ของเจ้าของ (GCM ล็อกอินเบราว์เซอร์)
+- Auto-update (`src/main/updater.ts`), สำรอง DB ก่อน migration, ไอคอนแมว (`build/icon.svg` → `npm run icon`)
+- Release workflow ใหม่: draft ด้วย `gh` + Release Notes ภาษาไทยจาก CHANGELOG (`scripts/release-notes.cjs`)
+- ฟอนต์ IBM Plex Sans Thai, สีเข้มขึ้น, แก้เลย์เอาต์ 900×600 (+ `e2e/layout.spec.ts`)
+- Firebase: config ใน `.env`, การ์ดบัญชีออนไลน์ + ปุ่มทดสอบ (`AccountCard.tsx`, `lib/firebase.ts`), rules เพิ่ม `meta`
+
+### ผลทดสอบจริง
+| สิ่งที่ทดสอบ | ผล |
+|---|---|
+| `npm run verify` | ✅ 58 unit tests |
+| `npx playwright test` | ✅ 4/4 (บัญชี, รายการประจำ, เลย์เอาต์ 900×600, การ์ดบัญชีออนไลน์ + ไม่มี CSP error) |
+| CI บน GitHub | ✅ ทุก push |
+| Release v0.1.0 | ⚠️ ซ้ำ 2 อัน → ลิงก์ tag เป็น 404 (ต้องลบอันที่มีแค่ .blockmap) |
+| Release v0.1.1 | ❌ build ล้ม (`-c.publish...`) — ไม่ได้ออก, เหลือ draft ค้าง |
+| Release v0.1.2, v0.1.3 | ✅ Release เดียว ไฟล์ครบ ลิงก์ 200 |
+| ติดตั้ง v0.1.0 จาก Release (`/S`) | ✅ `C:\Program Files\MeowLife` |
+| อัปเดต 0.1.0 → 0.1.2 ในแอปจริง | ✅ เวอร์ชันเปลี่ยน ข้อมูลทดสอบอยู่ครบ (หน้าต่างติดตั้งค้างรอ Finish → แก้ใน 0.1.3, ยังไม่ได้ทดสอบซ้ำ) |
+| Firestore REST แบบไม่ล็อกอิน | ✅ 403 PERMISSION_DENIED |
+| ล็อกอิน Firebase จริง + ปุ่มทดสอบ | ⏳ เจ้าของต้องสร้างบัญชีเอง (agent ไม่สร้างบัญชีแทน) |
+
+### สภาพเครื่องเจ้าของหลังจบ
+- แอปติดตั้ง v0.1.2 (จะอัปเดตเองเป็นเวอร์ชันล่าสุดเมื่อเปิด)
+- ข้อมูลจริง `%APPDATA%\MeowLife` ถูกคืนเป็นแบบก่อนทดสอบ (0 รายการ)
+- ฟอนต์ "Lmf_ Wanpharuehat Demo" ยังติดตั้งอยู่ในบัญชี Windows (แอปไม่ใช้แล้ว ลบได้จาก Settings → Fonts)
+- `picture ref/`, `Wanpharuehat.zip` อยู่ในโฟลเดอร์โปรเจกต์ แต่ ignored
+
+### เริ่ม Session ถัดไป
+1. ถามผลขั้นที่ 7 (ทดสอบการเชื่อมต่อ) จากเจ้าของ
+2. M2 (Backup/Restore, Export, จัดการหมวด, นำเข้า Excel — ยังรอไฟล์ตัวอย่าง) หรือ M4 sync จริง
+
 ## Session 1 — 2026-10-28 (M0 + M1)
 
 ### สิ่งที่ทำ

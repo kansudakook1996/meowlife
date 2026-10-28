@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { monthOf, todayIso } from '@shared/dates'
 import type { Category, PaymentMethod } from '@shared/types'
+import logoUrl from './assets/logo.png'
 import { CatMascot } from './components/CatMascot'
 import { Modal } from './components/Modal'
 import { TransactionForm } from './components/TransactionForm'
@@ -92,7 +93,7 @@ export function App(): React.JSX.Element {
       <div className="app">
         <nav className="sidebar" aria-label="เมนูหลัก">
           <div className="brand">
-            <CatMascot size={48} />
+            <img src={logoUrl} alt="" width={52} height={52} className="brand-logo" />
             <span className="brand-name">MeowLife</span>
           </div>
           {NAV.map((n) => (
