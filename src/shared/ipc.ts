@@ -9,7 +9,10 @@ import type {
   UpdateStatus
 } from './types'
 import type { CategoryInput, RecurringInput, TransactionInput, TransactionQuery } from './schemas'
+import type { BackupPick, ExportResult, ImportCommitResult, ImportPreview, ImportSession, RestoreResult } from './dataTools'
+import type { ImportMapping } from './importMap'
 import type { ApplyResult, SyncConflictView, SyncDoc, SyncTable } from './syncModel'
+import type { MonthTotals } from './trend'
 
 /** The only IPC channels the renderer may call. Preload exposes exactly these. */
 export const IPC = {
@@ -28,6 +31,21 @@ export const IPC = {
   recurringUpdate: 'recurring:update',
   recurringRemove: 'recurring:remove',
   summaryMonth: 'summary:month',
+  categoriesUpdate: 'categories:update',
+  categoriesRemove: 'categories:remove',
+  paymentMethodsCreate: 'paymentMethods:create',
+  paymentMethodsUpdate: 'paymentMethods:update',
+  paymentMethodsRemove: 'paymentMethods:remove',
+  reportTrend: 'report:trend',
+  backupCreate: 'backup:create',
+  backupPick: 'backup:pick',
+  backupRestore: 'backup:restore',
+  backupOpenFolder: 'backup:openFolder',
+  exportCsv: 'export:csv',
+  importPick: 'import:pick',
+  importPreview: 'import:preview',
+  importCommit: 'import:commit',
+  importSaveErrors: 'import:saveErrors',
   syncBind: 'sync:bind',
   syncGetCursor: 'sync:getCursor',
   syncSetCursor: 'sync:setCursor',
@@ -55,8 +73,15 @@ export interface MeowBridge {
   categories: {
     list(): R<Category[]>
     create(input: CategoryInput): R<Category>
+    update(id: string, input: CategoryInput): R<Category>
+    remove(id: string): R<{ detached: number }>
   }
-  paymentMethods: { list(): R<PaymentMethod[]> }
+  paymentMethods: {
+    list(): R<PaymentMethod[]>
+    create(name: string): R<PaymentMethod>
+    update(id: string, name: string): R<PaymentMethod>
+    remove(id: string): R<{ detached: number }>
+  }
   transactions: {
     list(query: TransactionQuery): R<TransactionView[]>
     create(input: TransactionInput): R<TransactionView>
@@ -72,6 +97,19 @@ export interface MeowBridge {
     remove(id: string): R<void>
   }
   summary: { month(month: string): R<MonthSummary> }
+  reports: { trend(endMonth: string, count: number): R<MonthTotals[]> }
+  /** File dialogs are opened by the main process; null means the user cancelled. */
+  data: {
+    createBackup(): R<{ path: string } | null>
+    pickBackup(): R<BackupPick | null>
+    restoreBackup(): R<RestoreResult>
+    openBackupFolder(): R<void>
+    exportCsv(scope: 'all' | 'month', month?: string): R<ExportResult | null>
+    pickImportFile(): R<ImportSession | null>
+    previewImport(token: string, mapping: ImportMapping): R<ImportPreview>
+    commitImport(token: string, mapping: ImportMapping, includeDuplicates: boolean, createMissing: boolean): R<ImportCommitResult>
+    saveImportErrors(token: string, mapping: ImportMapping): R<{ path: string } | null>
+  }
   /** Local half of the sync; the renderer talks to Firestore and hands data to these calls. */
   sync: {
     bind(uid: string): R<{ mismatch: boolean }>

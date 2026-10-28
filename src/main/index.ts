@@ -1,6 +1,8 @@
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, shell } from 'electron'
 import { openDatabase, type Db } from './db/connection'
+import { ensureDailyBackup } from './db/backupRepo'
+import { registerDataHandlers } from './ipc/dataHandlers'
 import { registerIpcHandlers } from './ipc/handlers'
 import { startAutoUpdates } from './updater'
 
@@ -74,6 +76,12 @@ if (!app.requestSingleInstanceLock()) {
       return
     }
     registerIpcHandlers(db, userData)
+    registerDataHandlers(db, userData)
+    try {
+      ensureDailyBackup(db, join(userData, 'backups'))
+    } catch (error) {
+      console.warn('[backup] daily backup failed:', error instanceof Error ? error.name : 'unknown')
+    }
     createWindow()
     startAutoUpdates()
   })

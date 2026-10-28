@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { firstDayOfMonth, firstDayOfNextMonth } from '@shared/dates'
+import { addMonths, firstDayOfMonth, firstDayOfNextMonth } from '@shared/dates'
+import { fillMonths, type MonthTotals } from '@shared/trend'
 import { TransactionQuerySchema, type TransactionInput, type TransactionQuery } from '@shared/schemas'
 import { computeStatus } from '@shared/status'
 import type { EntryKind, TransactionView } from '@shared/types'
@@ -67,6 +68,28 @@ export function listMonth(db: Db, month: string, today: string): TransactionView
        ORDER BY t.txn_date DESC, t.created_at DESC`
     )
     .all(firstDayOfMonth(month), firstDayOfNextMonth(month)) as unknown as TransactionRow[]
+  return rows.map((r) => toView(r, today))
+}
+
+/** Income/expense totals for `count` months ending at `endMonth` (one SQL query). */
+export function monthlyTotals(db: Db, endMonth: string, count: number): MonthTotals[] {
+  const from = firstDayOfMonth(addMonths(endMonth, -(count - 1)))
+  const to = firstDayOfNextMonth(endMonth)
+  const rows = db
+    .prepare(
+      `SELECT substr(txn_date, 1, 7) AS month, kind, SUM(amount_satang) AS total
+       FROM transactions WHERE deleted_at IS NULL AND txn_date >= ? AND txn_date < ?
+       GROUP BY month, kind`
+    )
+    .all(from, to) as unknown as Array<{ month: string; kind: EntryKind; total: number }>
+  return fillMonths(endMonth, count, rows)
+}
+
+/** Every non-deleted item, oldest first (for export). */
+export function listAllTransactions(db: Db, today: string): TransactionView[] {
+  const rows = db
+    .prepare(`${SELECT_VIEW} WHERE t.deleted_at IS NULL ORDER BY t.txn_date, t.created_at`)
+    .all() as unknown as TransactionRow[]
   return rows.map((r) => toView(r, today))
 }
 

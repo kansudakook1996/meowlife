@@ -5,9 +5,6 @@ import { useLoad } from '../lib/useLoad'
 import { describeUpdate, useUpdateStatus } from '../lib/useUpdateStatus'
 
 const ROADMAP = [
-  'นำเข้า Excel/CSV และส่งออกข้อมูล',
-  'สำรองและกู้คืนข้อมูล (Backup/Restore)',
-  'รายงานและกราฟแนวโน้ม',
   'ปฏิทิน บันทึกประจำวัน สิ่งที่ต้องทำ เป้าหมาย นิสัย โน้ต'
 ]
 

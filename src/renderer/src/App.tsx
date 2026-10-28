@@ -11,17 +11,23 @@ import { SyncPill } from './components/SyncPill'
 import { useLoad } from './lib/useLoad'
 import { SyncProvider } from './lib/useSync'
 import { useUpdateStatus } from './lib/useUpdateStatus'
+import { CategoriesPage } from './pages/CategoriesPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { DataPage } from './pages/DataPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { RecurringPage } from './pages/RecurringPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { TransactionsPage } from './pages/TransactionsPage'
 
-type PageId = 'dashboard' | 'transactions' | 'recurring' | 'settings'
+type PageId = 'dashboard' | 'transactions' | 'recurring' | 'reports' | 'categories' | 'data' | 'settings'
 
 const NAV: Array<{ id: PageId; icon: string; label: string }> = [
   { id: 'dashboard', icon: '🏠', label: 'ภาพรวม' },
   { id: 'transactions', icon: '📒', label: 'รายการรับ-จ่าย' },
   { id: 'recurring', icon: '🔁', label: 'รายการประจำ' },
+  { id: 'reports', icon: '📈', label: 'รายงาน' },
+  { id: 'categories', icon: '🏷️', label: 'หมวดหมู่' },
+  { id: 'data', icon: '💾', label: 'ข้อมูลและสำรอง' },
   { id: 'settings', icon: '⚙️', label: 'ตั้งค่า' }
 ]
 
@@ -132,6 +138,9 @@ export function App(): React.JSX.Element {
           {page === 'dashboard' && <DashboardPage />}
           {page === 'transactions' && <TransactionsPage searchFocusSignal={searchFocusSignal} />}
           {page === 'recurring' && <RecurringPage />}
+          {page === 'reports' && <ReportsPage />}
+          {page === 'categories' && <CategoriesPage />}
+          {page === 'data' && <DataPage />}
           {page === 'settings' && <SettingsPage />}
         </main>
       </div>

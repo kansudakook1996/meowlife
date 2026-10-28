@@ -59,7 +59,13 @@
 - `src/renderer/src/components/AccountCard.tsx` — UI บัญชี + ปุ่มทดสอบการเชื่อมต่อ (`users/{uid}/meta/connection`)
 - Config จาก `.env` (`RENDERER_VITE_FIREBASE_*`, สาธารณะ) / CSP เปิดเฉพาะ 3 host ของ Google
 
-## Sync (ออกแบบไว้ ทำใน M4)
+## Sync (ทำแล้วใน 0.2.0 — ดูรายละเอียดกติกาใน DATA_MODEL.md §6)
+- Engine บริสุทธิ์: `src/shared/syncEngine.ts` (`runSync(local, remote, uid)`) ไม่รู้จัก Electron/Firebase จึงทดสอบด้วยเครื่องจำลอง 2 เครื่องได้
+- ฝั่งเครื่อง: `src/main/db/syncRepo.ts` ผ่าน IPC `sync:*` · ฝั่งคลาวด์: `remoteFor(uid)` ใน `lib/firebase.ts`
+- `SyncProvider` (`lib/useSync.tsx`) สั่งซิงก์ตอนเข้าสู่ระบบ / หลังแก้ข้อมูล 4 วิ / ทุก 2 นาที / เมื่อ online และ retry แบบ backoff
+- Backup/Restore/Import/Export: `src/main/db/backupRepo.ts`, `src/main/ipc/dataHandlers.ts`, `src/main/import/` (อ่าน .xlsx เอง ไม่ใช้ไลบรารีสเปรดชีต)
+
+## Sync — แผนเดิม (เก็บไว้เป็นประวัติ)
 - Local-first: SQLite คือแหล่งความจริงในเครื่อง ทุกการแก้ไขตั้ง `dirty = 1`, `updated_at = now`
 - Push: ส่งแถว dirty ไป `users/{uid}/{collection}/{id}` แล้วล้าง dirty
 - Pull: ดึงเอกสารที่ `updated_at` > `last_pulled_at`

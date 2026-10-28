@@ -10,9 +10,16 @@ const bridge: MeowBridge = {
   app: { info: () => ipcRenderer.invoke(IPC.appInfo) },
   categories: {
     list: () => ipcRenderer.invoke(IPC.categoriesList),
-    create: (input) => ipcRenderer.invoke(IPC.categoriesCreate, input)
+    create: (input) => ipcRenderer.invoke(IPC.categoriesCreate, input),
+    update: (id, input) => ipcRenderer.invoke(IPC.categoriesUpdate, { id, input }),
+    remove: (id) => ipcRenderer.invoke(IPC.categoriesRemove, id)
   },
-  paymentMethods: { list: () => ipcRenderer.invoke(IPC.paymentMethodsList) },
+  paymentMethods: {
+    list: () => ipcRenderer.invoke(IPC.paymentMethodsList),
+    create: (name) => ipcRenderer.invoke(IPC.paymentMethodsCreate, name),
+    update: (id, name) => ipcRenderer.invoke(IPC.paymentMethodsUpdate, { id, name }),
+    remove: (id) => ipcRenderer.invoke(IPC.paymentMethodsRemove, id)
+  },
   transactions: {
     list: (query) => ipcRenderer.invoke(IPC.txList, query),
     create: (input) => ipcRenderer.invoke(IPC.txCreate, input),
@@ -28,6 +35,19 @@ const bridge: MeowBridge = {
     remove: (id) => ipcRenderer.invoke(IPC.recurringRemove, id)
   },
   summary: { month: (month) => ipcRenderer.invoke(IPC.summaryMonth, month) },
+  reports: { trend: (endMonth, count) => ipcRenderer.invoke(IPC.reportTrend, { endMonth, count }) },
+  data: {
+    createBackup: () => ipcRenderer.invoke(IPC.backupCreate),
+    pickBackup: () => ipcRenderer.invoke(IPC.backupPick),
+    restoreBackup: () => ipcRenderer.invoke(IPC.backupRestore),
+    openBackupFolder: () => ipcRenderer.invoke(IPC.backupOpenFolder),
+    exportCsv: (scope, month) => ipcRenderer.invoke(IPC.exportCsv, { scope, month }),
+    pickImportFile: () => ipcRenderer.invoke(IPC.importPick),
+    previewImport: (token, mapping) => ipcRenderer.invoke(IPC.importPreview, { token, mapping }),
+    commitImport: (token, mapping, includeDuplicates, createMissing) =>
+      ipcRenderer.invoke(IPC.importCommit, { token, mapping, includeDuplicates, createMissing }),
+    saveImportErrors: (token, mapping) => ipcRenderer.invoke(IPC.importSaveErrors, { token, mapping })
+  },
   sync: {
     bind: (uid) => ipcRenderer.invoke(IPC.syncBind, uid),
     getCursor: (table) => ipcRenderer.invoke(IPC.syncGetCursor, table),
