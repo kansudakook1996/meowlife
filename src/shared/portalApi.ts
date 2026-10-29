@@ -1,5 +1,5 @@
 import type { CalendarEvent } from './calendar'
-import type { CardCharge, CardInput, CardPlan, CardRecurring, CardRecurringInput, CardsOverview, ChargeInput, CreateBillResult, CreditCard, PlanInput } from './cards'
+import type { CardCharge, CardInput, CardPlan, CardRecurring, CardRecurringInput, CardsOverview, PartnerPaymentInfo, ChargeInput, CreateBillResult, CreditCard, PlanInput } from './cards'
 import type {
   AppSettings,
   Badge,
@@ -120,6 +120,8 @@ export interface PortalBridge {
       remove(id: string): R<void>
       restore(id: string): R<void>
     }
+    /** Record (paid = true) or undo that the partner has repaid their part of a statement. */
+    partnerPaid(cardId: string, month: string, paid: boolean): R<PartnerPaymentInfo | null>
     /** Create/update the unpaid ledger bill of a statement (a paid bill is left as it is). */
     createBill(cardId: string, month: string): R<CreateBillResult>
   }

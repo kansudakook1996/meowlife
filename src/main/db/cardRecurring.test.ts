@@ -35,6 +35,7 @@ const rule = (cardId: string, over: Partial<Parameters<typeof createCardRecurrin
     dayOfMonth: 5,
     startMonth: '2026-09',
     endMonth: null,
+    partnerSatang: 0,
     note: '',
     isActive: true,
     ...over
@@ -123,7 +124,7 @@ describe('repeating card charges', () => {
   })
 
   it('validates input', () => {
-    const base = { cardId: crypto.randomUUID(), title: 'x', category: '', amountSatang: 100, dayOfMonth: 5, startMonth: '2026-10', endMonth: null, note: '', isActive: true }
+    const base = { cardId: crypto.randomUUID(), title: 'x', category: '', amountSatang: 100, dayOfMonth: 5, startMonth: '2026-10', endMonth: null, partnerSatang: 0, note: '', isActive: true }
     expect(CardRecurringInputSchema.safeParse(base).success).toBe(true)
     expect(CardRecurringInputSchema.safeParse({ ...base, amountSatang: 0 }).success).toBe(false)
     expect(CardRecurringInputSchema.safeParse({ ...base, dayOfMonth: 32 }).success).toBe(false)

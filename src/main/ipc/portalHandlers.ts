@@ -13,7 +13,7 @@ import {
 import { IdSchema, IsoDateSchema, MonthSchema } from '@shared/schemas'
 import { MAX_SATANG } from '@shared/money'
 import { CardInputSchema, CardRecurringInputSchema, ChargeInputSchema, PlanInputSchema } from '@shared/cards'
-import { cardsOverview, createCard, createCardBill, createCardRecurring, createCharge, createPlan, listCards, updateCard, updateCardRecurring, updateCharge, updatePlan } from '../db/cardRepo'
+import { cardsOverview, createCard, createCardBill, createCardRecurring, createCharge, createPlan, listCards, setPartnerPaid, updateCard, updateCardRecurring, updateCharge, updatePlan } from '../db/cardRepo'
 import type { Db } from '../db/connection'
 import {
   activityInsights,
@@ -116,6 +116,7 @@ export function registerPortalHandlers(db: Db, onSettings: (s: AppSettings) => v
   handle(c('cards', 'recurring.update'), Update(CardRecurringInputSchema), ({ id, input }) => updateCardRecurring(db, id, input))
   handle(c('cards', 'recurring.remove'), IdSchema, (id) => removeRow(db, 'card_recurring', id))
   handle(c('cards', 'recurring.restore'), IdSchema, (id) => restoreRow(db, 'card_recurring', id))
+  handle(c('cards', 'partnerPaid'), z.strictObject({ cardId: IdSchema, month: MonthSchema, paid: z.boolean() }), ({ cardId, month, paid }) => setPartnerPaid(db, cardId, month, paid, today()))
   handle(c('cards', 'createBill'), z.strictObject({ cardId: IdSchema, month: MonthSchema }), ({ cardId, month }) => createCardBill(db, cardId, month, today()))
   handle(c('calendar', 'range'), z.strictObject({ from: IsoDateSchema, to: IsoDateSchema }), ({ from, to }) =>
     calendarEvents(db, from, to, today())

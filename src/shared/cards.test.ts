@@ -17,10 +17,10 @@ import {
 
 const card: CreditCard = { id: 'c1', name: 'KTC', issuer: 'กรุงไทย', statementDay: 25, dueDay: 10, limitSatang: 5_000_000, isActive: true, sortOrder: 0 }
 const plan = (over: Partial<CardPlan> = {}): CardPlan => ({
-  id: 'p1', cardId: 'c1', title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150_000, startMonth: '2026-08', note: '', ...over
+  id: 'p1', cardId: 'c1', title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150_000, partnerSatang: 0, startMonth: '2026-08', note: '', ...over
 })
 const charge = (over: Partial<CardCharge> = {}): CardCharge => ({
-  id: 'x', cardId: 'c1', chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 25_000, note: '', billMonth: '2026-10', ...over
+  id: 'x', cardId: 'c1', chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 25_000, partnerSatang: 0, note: '', billMonth: '2026-10', ...over
 })
 
 describe('which statement a purchase belongs to', () => {
@@ -95,7 +95,7 @@ describe('statement', () => {
   it('totals several cards for the month', () => {
     const a = buildStatement(card, [charge()], [], '2026-10')
     const b = buildStatement({ ...card, id: 'c2', name: 'SCB' }, [charge({ cardId: 'c2', amountSatang: 100_000 })], [], '2026-10')
-    const o = overviewOf('2026-10', [{ ...a, bill: null }, { ...b, bill: { transactionId: 't', isPaid: true, amountSatang: 100_000, status: 'paid' } }], '2026-10-28')
+    const o = overviewOf('2026-10', [{ ...a, bill: null, partnerPayment: null }, { ...b, partnerPayment: null, bill: { transactionId: 't', isPaid: true, amountSatang: 100_000, status: 'paid' } }], '2026-10-28')
     expect(o).toMatchObject({ totalDue: 125_000, chargesTotal: 125_000, installmentsTotal: 0 })
     expect(o.cards[0]?.daysToDue).toBe(13) // 2026-11-10
     expect(o.cards[1]?.daysToDue).toBeNull() // already paid
@@ -110,11 +110,11 @@ describe('validation', () => {
     expect(CardInputSchema.safeParse({ name: 'x', issuer: '', statementDay: 32, dueDay: 10, limitSatang: null, isActive: true }).success).toBe(false)
   })
   it('charges and plans', () => {
-    const c = { cardId: uuid, chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 100, note: '' }
+    const c = { cardId: uuid, chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 100, partnerSatang: 0, note: '' }
     expect(ChargeInputSchema.safeParse(c).success).toBe(true)
     expect(ChargeInputSchema.safeParse({ ...c, amountSatang: 0 }).success).toBe(false)
     expect(ChargeInputSchema.safeParse({ ...c, chargeDate: '2026-02-30' }).success).toBe(false)
-    const p = { cardId: uuid, title: 'ผ่อนมือถือ', totalMonths: 10, monthlySatang: 150_000, startMonth: '2026-08', note: '' }
+    const p = { cardId: uuid, title: 'ผ่อนมือถือ', totalMonths: 10, monthlySatang: 150_000, partnerSatang: 0, startMonth: '2026-08', note: '' }
     expect(PlanInputSchema.safeParse(p).success).toBe(true)
     expect(PlanInputSchema.safeParse({ ...p, totalMonths: 1 }).success).toBe(false)
     expect(PlanInputSchema.safeParse({ ...p, totalMonths: 121 }).success).toBe(false)

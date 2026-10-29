@@ -5,7 +5,7 @@ import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } fro
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { openMemoryDatabase } from '../src/main/db/connection'
 import { DEFAULT_CATEGORIES } from '../src/main/db/defaults'
-import { createCard, createCardRecurring, createCharge, createPlan } from '../src/main/db/cardRepo'
+import { createCard, createCardRecurring, createCharge, createPlan, setPartnerPaid } from '../src/main/db/cardRepo'
 import { createRecurring, ensureRecurringForMonth } from '../src/main/db/recurringRepo'
 import { getDirty } from '../src/main/db/syncRepo'
 import { createGoal, createHabit, createNote, createTask, saveJournal, setHabitCheck } from '../src/main/db/portalRepo'
@@ -61,9 +61,10 @@ function appDocs(): Array<{ table: string; doc: SyncDoc }> {
   setHabitCheck(db, habit.id, '2026-10-28', true)
   createNote(db, { title: 'โน้ต', body: 'เนื้อหา', isPinned: true })
   const card = createCard(db, { name: 'KTC', issuer: 'กรุงไทย', statementDay: 25, dueDay: 10, limitSatang: 5000000, isActive: true })
-  createCharge(db, { cardId: card.id, chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 25000, note: '' })
-  createPlan(db, { cardId: card.id, title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150000, startMonth: '2026-08', note: '' })
-  createCardRecurring(db, { cardId: card.id, title: 'Electricity', category: 'Utilities', amountSatang: 120000, dayOfMonth: 5, startMonth: '2026-10', endMonth: null, note: '', isActive: true })
+  createCharge(db, { cardId: card.id, chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 25000, partnerSatang: 5000, note: '' })
+  createPlan(db, { cardId: card.id, title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150000, partnerSatang: 0, startMonth: '2026-08', note: '' })
+  createCardRecurring(db, { cardId: card.id, title: 'Electricity', category: 'Utilities', amountSatang: 120000, partnerSatang: 0, dayOfMonth: 5, startMonth: '2026-10', endMonth: null, note: '', isActive: true })
+  setPartnerPaid(db, card.id, '2026-10', true, '2026-10-28')
   // Mark everything dirty so seeded categories / payment methods are included too.
   for (const t of ['categories', 'payment_methods']) db.exec(`UPDATE ${t} SET dirty = 1`)
   return getDirty(db, 500)

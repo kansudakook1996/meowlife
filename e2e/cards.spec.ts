@@ -141,3 +141,27 @@ test('a monthly repeating charge on the card is added to the statement by itself
   await nav('บัตรเครดิต').click()
   await expect(page.getByText('ค่าไฟรายเดือน')).toHaveCount(1)
 })
+
+test("partner's share: borrowed-card spending is split out, the ledger bill holds only our part, and the repayment can be ticked", async () => {
+  await page.getByRole('button', { name: '＋ เพิ่มยอด', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('วันที่ใช้จ่าย').fill(`${month}-06`)
+  await dialog.getByLabel('รายการ', { exact: true }).fill('แฟนยืมบัตร')
+  await dialog.getByLabel('จำนวนเงิน (บาท)').fill('1,000')
+  await dialog.getByRole('button', { name: 'แฟนจ่ายทั้งหมด' }).click()
+  await expect(dialog.getByText(/ส่วนของเรา ฿0.00 · ส่วนของแฟน ฿1,000.00/)).toBeVisible()
+  await dialog.getByRole('button', { name: 'บันทึก' }).click()
+
+  await expect(page.getByText(/แฟนต้องโอนให้ ฿1,000.00/)).toBeVisible()
+  await expect(page.getByText('แฟนจ่ายทั้งหมด').first()).toBeVisible() // badge on the charge
+  await expect(page.getByText(/ส่วนของเรา ฿2,250.00/).first()).toBeVisible() // 3,250 bank total - 1,000 partner
+  // the ledger bill made earlier already holds exactly our part (฿2,250): the partner's 1,000 never reaches our expenses
+  await expect(page.getByText(/รายการจ่ายบิล ฿2,250.00/)).toBeVisible()
+  await expect(page.getByRole('button', { name: /อัปเดตยอดบิลเป็น/ })).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'แฟนโอนแล้ว', exact: true }).click()
+  await expect(page.getByText('✓ แฟนโอนแล้ว')).toBeVisible()
+  await page.screenshot({ path: 'test-results/19-cards-partner.png', fullPage: true })
+  await page.getByRole('button', { name: 'ยกเลิกการติ๊ก' }).click()
+  await expect(page.getByRole('button', { name: 'แฟนโอนแล้ว', exact: true })).toBeVisible()
+})

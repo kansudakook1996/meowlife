@@ -261,6 +261,28 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    version: 6,
+    up(db) {
+      // The partner's share of card spending (borrowed the card / splits a cost) and a record of their repayments.
+      // Existing rows default to 0 = everything is ours, so nothing changes until a share is set.
+      db.exec(`
+        ALTER TABLE card_charges ADD COLUMN partner_satang INTEGER NOT NULL DEFAULT 0 CHECK (partner_satang >= 0);
+        ALTER TABLE card_plans ADD COLUMN partner_satang INTEGER NOT NULL DEFAULT 0 CHECK (partner_satang >= 0);
+        ALTER TABLE card_recurring ADD COLUMN partner_satang INTEGER NOT NULL DEFAULT 0 CHECK (partner_satang >= 0);
+
+        CREATE TABLE card_partner_payments (
+          id TEXT PRIMARY KEY,
+          card_id TEXT NOT NULL REFERENCES credit_cards(id),
+          bill_month TEXT NOT NULL,
+          amount_satang INTEGER NOT NULL CHECK (amount_satang > 0),
+          paid_date TEXT NOT NULL,
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+      `)
+    }
   }
 ]
 

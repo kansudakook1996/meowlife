@@ -31,7 +31,7 @@ afterEach(() => vi.useRealTimers())
 const ktc = (over: Partial<Parameters<typeof createCard>[1]> = {}) =>
   createCard(db, { name: 'KTC', issuer: 'กรุงไทย', statementDay: 25, dueDay: 10, limitSatang: 5_000_000, isActive: true, ...over })
 const charge = (cardId: string, over: Partial<Parameters<typeof createCharge>[1]> = {}) =>
-  createCharge(db, { cardId, chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 25_000, note: '', ...over })
+  createCharge(db, { cardId, chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 25_000, partnerSatang: 0, note: '', ...over })
 
 describe('cards and charges', () => {
   it('files each purchase into the right statement', () => {
@@ -45,7 +45,7 @@ describe('cards and charges', () => {
     const a = ktc()
     const b = ktc({ name: 'SCB', statementDay: 5, dueDay: 25 })
     const ch = charge(a.id, { chargeDate: '2026-10-10' })
-    expect(updateCharge(db, ch.id, { cardId: b.id, chargeDate: '2026-10-10', title: 'ข้าว', category: '', amountSatang: 100, note: '' }).billMonth).toBe('2026-11') // after SCB's day 5
+    expect(updateCharge(db, ch.id, { cardId: b.id, chargeDate: '2026-10-10', title: 'ข้าว', category: '', amountSatang: 100, partnerSatang: 0, note: '' }).billMonth).toBe('2026-11') // after SCB's day 5
     expect(() => charge('00000000-0000-4000-8000-000000000000')).toThrow(/ไม่พบบัตร/)
   })
 
@@ -66,8 +66,8 @@ describe('monthly overview with instalments', () => {
     charge(a.id, { amountSatang: 25_000 })
     charge(a.id, { title: 'ของใช้', category: 'ของใช้', amountSatang: 12_050, chargeDate: '2026-10-12' })
     charge(b.id, { amountSatang: 100_000, chargeDate: '2026-10-03' })
-    createPlan(db, { cardId: a.id, title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150_000, startMonth: '2026-08', note: '' })
-    createPlan(db, { cardId: b.id, title: 'ผ่อนจบแล้ว', totalMonths: 3, monthlySatang: 50_000, startMonth: '2026-01', note: '' })
+    createPlan(db, { cardId: a.id, title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150_000, startMonth: '2026-08', partnerSatang: 0, note: '' })
+    createPlan(db, { cardId: b.id, title: 'ผ่อนจบแล้ว', totalMonths: 3, monthlySatang: 50_000, startMonth: '2026-01', partnerSatang: 0, note: '' })
 
     const o = cardsOverview(db, '2026-10', TODAY)
     const ka = o.cards.find((c) => c.card.id === a.id)!
@@ -81,8 +81,8 @@ describe('monthly overview with instalments', () => {
 
   it('a switched-off card is left out; its plans can be edited', () => {
     const a = ktc()
-    const p = createPlan(db, { cardId: a.id, title: 'ผ่อน', totalMonths: 6, monthlySatang: 100, startMonth: '2026-10', note: '' })
-    expect(updatePlan(db, p.id, { cardId: a.id, title: 'ผ่อน (แก้)', totalMonths: 12, monthlySatang: 200, startMonth: '2026-10', note: '' }).totalMonths).toBe(12)
+    const p = createPlan(db, { cardId: a.id, title: 'ผ่อน', totalMonths: 6, monthlySatang: 100, startMonth: '2026-10', partnerSatang: 0, note: '' })
+    expect(updatePlan(db, p.id, { cardId: a.id, title: 'ผ่อน (แก้)', totalMonths: 12, monthlySatang: 200, startMonth: '2026-10', partnerSatang: 0, note: '' }).totalMonths).toBe(12)
     updateCard(db, a.id, { name: 'KTC', issuer: '', statementDay: 25, dueDay: 10, limitSatang: null, isActive: false })
     expect(cardsOverview(db, '2026-10', TODAY).cards).toHaveLength(0)
     expect(listCards(db)).toHaveLength(1)
@@ -129,7 +129,7 @@ describe('delete and undo', () => {
   it('deleting a card hides its charges and plans together; undo brings them all back', () => {
     const c = ktc()
     charge(c.id)
-    createPlan(db, { cardId: c.id, title: 'ผ่อน', totalMonths: 6, monthlySatang: 100, startMonth: '2026-10', note: '' })
+    createPlan(db, { cardId: c.id, title: 'ผ่อน', totalMonths: 6, monthlySatang: 100, startMonth: '2026-10', partnerSatang: 0, note: '' })
     removeRow(db, 'credit_cards', c.id)
     expect(listCards(db)).toHaveLength(0)
     expect(cardsOverview(db, '2026-10', TODAY).cards).toHaveLength(0)
@@ -171,7 +171,7 @@ describe('credit cards sync between two devices', () => {
     const b = openMemoryDatabase()
     const c = ktc()
     const ch = charge(c.id, { amountSatang: 60_000 })
-    createPlan(db, { cardId: c.id, title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150_000, startMonth: '2026-08', note: '' })
+    createPlan(db, { cardId: c.id, title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150_000, startMonth: '2026-08', partnerSatang: 0, note: '' })
     createCardBill(db, c.id, '2026-10', TODAY)
     await runSync(localFor(db), remote, 'u')
     expect(countDirty(db)).toBe(0)
@@ -183,7 +183,7 @@ describe('credit cards sync between two devices', () => {
     expect(view.bill).toMatchObject({ amountSatang: 210_000, isPaid: false })
 
     vi.setSystemTime(new Date('2026-10-29T09:00:00.000Z'))
-    updateCharge(b, ch.id, { cardId: c.id, chargeDate: '2026-10-05', title: 'ข้าว (แก้)', category: 'อาหาร', amountSatang: 70_000, note: '' })
+    updateCharge(b, ch.id, { cardId: c.id, chargeDate: '2026-10-05', title: 'ข้าว (แก้)', category: 'อาหาร', amountSatang: 70_000, partnerSatang: 0, note: '' })
     setPaid(b, cardBillId(c.id, '2026-10'), true, TODAY)
     await runSync(localFor(b), remote, 'u')
     await runSync(localFor(db), remote, 'u')

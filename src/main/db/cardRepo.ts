@@ -14,9 +14,11 @@ import {
   type CardsOverview,
   type CreateBillResult,
   type CreditCard,
+  type PartnerPaymentInfo,
   type PlanInput
 } from '@shared/cards'
 import { addMonths, formatThaiMonth, recurringDateFor } from '@shared/dates'
+import { formatSatang } from '@shared/money'
 import { GENERATED_UPDATED_AT } from '@shared/syncModel'
 import { NotFoundError } from './catalogRepo'
 import { inTransaction, nowIso, type Db } from './connection'
@@ -48,6 +50,7 @@ const toCharge = (r: Row): CardCharge => ({
   title: r['title'] as string,
   category: r['category'] as string,
   amountSatang: r['amount_satang'] as number,
+  partnerSatang: r['partner_satang'] as number,
   note: r['note'] as string,
   billMonth: r['bill_month'] as string
 })
@@ -58,6 +61,7 @@ const toPlan = (r: Row): CardPlan => ({
   title: r['title'] as string,
   totalMonths: r['total_months'] as number,
   monthlySatang: r['monthly_satang'] as number,
+  partnerSatang: r['partner_satang'] as number,
   startMonth: r['start_month'] as string,
   note: r['note'] as string
 })
@@ -71,6 +75,7 @@ const toRecurring = (r: Row): CardRecurring => ({
   dayOfMonth: r['day_of_month'] as number,
   startMonth: r['start_month'] as string,
   endMonth: r['end_month'] as string | null,
+  partnerSatang: r['partner_satang'] as number,
   note: r['note'] as string,
   isActive: r['is_active'] === 1
 })
@@ -126,9 +131,9 @@ export function createCharge(db: Db, input: ChargeInput): CardCharge {
   const id = randomUUID()
   const now = nowIso()
   db.prepare(
-    `INSERT INTO card_charges (id, card_id, charge_date, title, category, amount_satang, note, bill_month, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, input.cardId, input.chargeDate, input.title, input.category, input.amountSatang, input.note, billMonthFor(input.chargeDate, card.statementDay), now, now)
+    `INSERT INTO card_charges (id, card_id, charge_date, title, category, amount_satang, partner_satang, note, bill_month, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, input.cardId, input.chargeDate, input.title, input.category, input.amountSatang, input.partnerSatang, input.note, billMonthFor(input.chargeDate, card.statementDay), now, now)
   return toCharge(one(db, 'SELECT * FROM card_charges WHERE id = ?', id) as Row)
 }
 
@@ -136,10 +141,10 @@ export function updateCharge(db: Db, id: string, input: ChargeInput): CardCharge
   const card = getCard(db, input.cardId)
   const r = db
     .prepare(
-      `UPDATE card_charges SET card_id = ?, charge_date = ?, title = ?, category = ?, amount_satang = ?, note = ?, bill_month = ?,
+      `UPDATE card_charges SET card_id = ?, charge_date = ?, title = ?, category = ?, amount_satang = ?, partner_satang = ?, note = ?, bill_month = ?,
          updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL`
     )
-    .run(input.cardId, input.chargeDate, input.title, input.category, input.amountSatang, input.note, billMonthFor(input.chargeDate, card.statementDay), nowIso(), id)
+    .run(input.cardId, input.chargeDate, input.title, input.category, input.amountSatang, input.partnerSatang, input.note, billMonthFor(input.chargeDate, card.statementDay), nowIso(), id)
   if (r.changes === 0) throw new NotFoundError('ไม่พบรายการใช้จ่ายนี้')
   return toCharge(one(db, 'SELECT * FROM card_charges WHERE id = ?', id) as Row)
 }
@@ -151,9 +156,9 @@ export function createPlan(db: Db, input: PlanInput): CardPlan {
   const id = randomUUID()
   const now = nowIso()
   db.prepare(
-    `INSERT INTO card_plans (id, card_id, title, total_months, monthly_satang, start_month, note, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, input.cardId, input.title, input.totalMonths, input.monthlySatang, input.startMonth, input.note, now, now)
+    `INSERT INTO card_plans (id, card_id, title, total_months, monthly_satang, partner_satang, start_month, note, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, input.cardId, input.title, input.totalMonths, input.monthlySatang, input.partnerSatang, input.startMonth, input.note, now, now)
   return toPlan(one(db, 'SELECT * FROM card_plans WHERE id = ?', id) as Row)
 }
 
@@ -161,10 +166,10 @@ export function updatePlan(db: Db, id: string, input: PlanInput): CardPlan {
   getCard(db, input.cardId)
   const r = db
     .prepare(
-      `UPDATE card_plans SET card_id = ?, title = ?, total_months = ?, monthly_satang = ?, start_month = ?, note = ?,
+      `UPDATE card_plans SET card_id = ?, title = ?, total_months = ?, monthly_satang = ?, partner_satang = ?, start_month = ?, note = ?,
          updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL`
     )
-    .run(input.cardId, input.title, input.totalMonths, input.monthlySatang, input.startMonth, input.note, nowIso(), id)
+    .run(input.cardId, input.title, input.totalMonths, input.monthlySatang, input.partnerSatang, input.startMonth, input.note, nowIso(), id)
   if (r.changes === 0) throw new NotFoundError('ไม่พบรายการผ่อนนี้')
   return toPlan(one(db, 'SELECT * FROM card_plans WHERE id = ?', id) as Row)
 }
@@ -180,9 +185,9 @@ export function createCardRecurring(db: Db, input: CardRecurringInput): CardRecu
   const id = randomUUID()
   const now = nowIso()
   db.prepare(
-    `INSERT INTO card_recurring (id, card_id, title, category, amount_satang, day_of_month, start_month, end_month, note, is_active, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, input.cardId, input.title, input.category, input.amountSatang, input.dayOfMonth, input.startMonth, input.endMonth, input.note, input.isActive ? 1 : 0, now, now)
+    `INSERT INTO card_recurring (id, card_id, title, category, amount_satang, partner_satang, day_of_month, start_month, end_month, note, is_active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, input.cardId, input.title, input.category, input.amountSatang, input.partnerSatang, input.dayOfMonth, input.startMonth, input.endMonth, input.note, input.isActive ? 1 : 0, now, now)
   return toRecurring(one(db, 'SELECT * FROM card_recurring WHERE id = ?', id) as Row)
 }
 
@@ -191,10 +196,10 @@ export function updateCardRecurring(db: Db, id: string, input: CardRecurringInpu
   getCard(db, input.cardId)
   const r = db
     .prepare(
-      `UPDATE card_recurring SET card_id = ?, title = ?, category = ?, amount_satang = ?, day_of_month = ?, start_month = ?, end_month = ?,
+      `UPDATE card_recurring SET card_id = ?, title = ?, category = ?, amount_satang = ?, partner_satang = ?, day_of_month = ?, start_month = ?, end_month = ?,
          note = ?, is_active = ?, updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL`
     )
-    .run(input.cardId, input.title, input.category, input.amountSatang, input.dayOfMonth, input.startMonth, input.endMonth, input.note, input.isActive ? 1 : 0, nowIso(), id)
+    .run(input.cardId, input.title, input.category, input.amountSatang, input.partnerSatang, input.dayOfMonth, input.startMonth, input.endMonth, input.note, input.isActive ? 1 : 0, nowIso(), id)
   if (r.changes === 0) throw new NotFoundError('ไม่พบรายการประจำนี้')
   return toRecurring(one(db, 'SELECT * FROM card_recurring WHERE id = ?', id) as Row)
 }
@@ -218,8 +223,8 @@ export function ensureCardRecurringForMonth(db: Db, month: string): number {
   if (rules.length === 0) return 0
   const statementDays = new Map(listCards(db).map((c) => [c.id, c.statementDay]))
   const insert = db.prepare(
-    `INSERT OR IGNORE INTO card_charges (id, card_id, charge_date, title, category, amount_satang, note, bill_month, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT OR IGNORE INTO card_charges (id, card_id, charge_date, title, category, amount_satang, partner_satang, note, bill_month, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
   return inTransaction(db, () => {
     let created = 0
@@ -233,6 +238,7 @@ export function ensureCardRecurringForMonth(db: Db, month: string): number {
         r.title,
         r.category,
         r.amountSatang,
+        r.partnerSatang,
         r.note,
         billMonthFor(date, statementDays.get(r.cardId) ?? 25),
         now,
@@ -257,6 +263,14 @@ function billInfo(db: Db, cardId: string, month: string, today: string): CardBil
   return { transactionId: id, isPaid: t.isPaid, amountSatang: t.amountSatang, status: t.status }
 }
 
+/** Same id on every device for "the partner's repayment of card X for statement month M". Key must never change. */
+export const partnerPaymentId = (cardId: string, month: string): string => deterministicId(`cardpartner:${cardId}:${month}`)
+
+function partnerPaymentInfo(db: Db, cardId: string, month: string): PartnerPaymentInfo | null {
+  const r = one(db, 'SELECT amount_satang, paid_date FROM card_partner_payments WHERE id = ? AND deleted_at IS NULL', partnerPaymentId(cardId, month))
+  return r ? { amountSatang: r['amount_satang'] as number, paidDate: r['paid_date'] as string } : null
+}
+
 export function cardsOverview(db: Db, month: string, today: string): CardsOverview {
   // A statement holds purchases from the previous calendar month and this one, so create both months' repeating charges first.
   ensureCardRecurringForMonth(db, addMonths(month, -1))
@@ -267,7 +281,7 @@ export function cardsOverview(db: Db, month: string, today: string): CardsOvervi
   const plans = all(db, 'SELECT * FROM card_plans WHERE deleted_at IS NULL').map(toPlan)
   return overviewOf(
     month,
-    cards.map((card) => ({ ...buildStatement(card, charges, plans, month, recurring), bill: billInfo(db, card.id, month, today) })),
+    cards.map((card) => ({ ...buildStatement(card, charges, plans, month, recurring), bill: billInfo(db, card.id, month, today), partnerPayment: partnerPaymentInfo(db, card.id, month) })),
     today
   )
 }
@@ -283,6 +297,10 @@ export function createCardBill(db: Db, cardId: string, month: string, today: str
   const statement = overview.cards.find((c) => c.card.id === cardId)
   if (!statement) throw new NotFoundError('บัตรใบนี้ถูกปิดการใช้งานอยู่')
   if (statement.total <= 0) throw new NotFoundError('เดือนนี้ยังไม่มียอดของบัตรนี้')
+  // Only OUR part is an expense of ours; the partner's part is tracked on the statement (and repaid via setPartnerPaid).
+  if (statement.mineTotal <= 0) throw new NotFoundError('รอบนี้แฟนจ่ายทั้งหมด จึงไม่มีส่วนของเราให้สร้างเป็นรายการจ่ายบิล')
+  const mine = statement.mineTotal
+  const note = statement.partnerTotal > 0 ? `ส่วนของเรา (ยอดเต็มของบัตร ${formatSatang(statement.total)} · แฟนจ่าย ${formatSatang(statement.partnerTotal)}) รอบบิล ${formatThaiMonth(month)}` : `สร้างจากยอดบัตรเครดิต (รอบบิล ${formatThaiMonth(month)})`
 
   const id = cardBillId(cardId, month)
   const title = billTitle(card.name, month, formatThaiMonth)
@@ -297,12 +315,38 @@ export function createCardBill(db: Db, cardId: string, month: string, today: str
     db.prepare(
       `UPDATE transactions SET title = ?, amount_satang = ?, txn_date = ?, due_date = ?, category_id = COALESCE(category_id, ?),
          deleted_at = NULL, updated_at = ?, dirty = 1 WHERE id = ?`
-    ).run(title, statement.total, statement.dueDate, statement.dueDate, categoryId, now, id)
-    return { action: 'updated', transactionId: id, amountSatang: statement.total }
+    ).run(title, mine, statement.dueDate, statement.dueDate, categoryId, now, id)
+    db.prepare('UPDATE transactions SET note = ? WHERE id = ? AND note LIKE ?').run(note, id, 'สร้างจาก%')
+    db.prepare('UPDATE transactions SET note = ? WHERE id = ? AND note LIKE ?').run(note, id, 'ส่วนของเรา%')
+    return { action: 'updated', transactionId: id, amountSatang: mine }
   }
   db.prepare(
     `INSERT INTO transactions (id, kind, title, amount_satang, category_id, txn_date, due_date, is_paid, note, created_at, updated_at)
      VALUES (?, 'expense', ?, ?, ?, ?, ?, 0, ?, ?, ?)`
-  ).run(id, title, statement.total, categoryId, statement.dueDate, statement.dueDate, `สร้างจากยอดบัตรเครดิต (รอบบิล ${formatThaiMonth(month)})`, now, now)
-  return { action: 'created', transactionId: id, amountSatang: statement.total }
+  ).run(id, title, mine, categoryId, statement.dueDate, statement.dueDate, note, now, now)
+  return { action: 'created', transactionId: id, amountSatang: mine }
+}
+
+/**
+ * Record (or undo) that the partner has transferred their part of a statement back. Saved with a fixed id so it
+ * syncs like everything else; ticking again after the share changed simply records the new amount.
+ */
+export function setPartnerPaid(db: Db, cardId: string, month: string, paid: boolean, today: string): PartnerPaymentInfo | null {
+  getCard(db, cardId)
+  const id = partnerPaymentId(cardId, month)
+  const now = nowIso()
+  if (!paid) {
+    db.prepare('UPDATE card_partner_payments SET deleted_at = ?, updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL').run(now, now, id)
+    return null
+  }
+  const statement = cardsOverview(db, month, today).cards.find((c) => c.card.id === cardId)
+  if (!statement) throw new NotFoundError('บัตรใบนี้ถูกปิดการใช้งานอยู่')
+  if (statement.partnerTotal <= 0) throw new NotFoundError('รอบนี้ไม่มีส่วนของแฟน')
+  db.prepare(
+    `INSERT INTO card_partner_payments (id, card_id, bill_month, amount_satang, paid_date, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET amount_satang = excluded.amount_satang, paid_date = excluded.paid_date,
+       deleted_at = NULL, updated_at = excluded.updated_at, dirty = 1`
+  ).run(id, cardId, month, statement.partnerTotal, today, now, now)
+  return { amountSatang: statement.partnerTotal, paidDate: today }
 }

@@ -17,7 +17,8 @@ export const SYNC_TABLES = [
   'credit_cards',
   'card_charges',
   'card_plans',
-  'card_recurring'
+  'card_recurring',
+  'card_partner_payments'
 ] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
@@ -71,9 +72,10 @@ export const TABLE_COLUMNS: Record<SyncTable, readonly string[]> = {
   habit_checks: [...COMMON, 'habit_id', 'check_date'],
   notes: [...COMMON, 'title', 'body', 'is_pinned'],
   credit_cards: [...COMMON, 'name', 'issuer', 'statement_day', 'due_day', 'limit_satang', 'is_active', 'sort_order'],
-  card_charges: [...COMMON, 'card_id', 'charge_date', 'title', 'category', 'amount_satang', 'note', 'bill_month'],
-  card_plans: [...COMMON, 'card_id', 'title', 'total_months', 'monthly_satang', 'start_month', 'note'],
-  card_recurring: [...COMMON, 'card_id', 'title', 'category', 'amount_satang', 'day_of_month', 'start_month', 'end_month', 'note', 'is_active']
+  card_charges: [...COMMON, 'card_id', 'charge_date', 'title', 'category', 'amount_satang', 'partner_satang', 'note', 'bill_month'],
+  card_plans: [...COMMON, 'card_id', 'title', 'total_months', 'monthly_satang', 'partner_satang', 'start_month', 'note'],
+  card_recurring: [...COMMON, 'card_id', 'title', 'category', 'amount_satang', 'day_of_month', 'start_month', 'end_month', 'partner_satang', 'note', 'is_active'],
+  card_partner_payments: [...COMMON, 'card_id', 'bill_month', 'amount_satang', 'paid_date']
 }
 
 const toCamel = (s: string): string => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
@@ -98,6 +100,8 @@ export function docToRow(table: SyncTable, doc: SyncDoc): Record<string, string 
 const Stamp = z.string().min(20).max(40)
 const Int01 = z.number().int().min(0).max(1)
 const Amount = z.number().int().min(1).max(MAX_SATANG)
+/** The partner's share of a card amount (0 = none). */
+const Share = z.number().int().min(0).max(MAX_SATANG)
 
 const base = {
   id: IdSchema,
@@ -208,6 +212,7 @@ export const DOC_SCHEMAS: Record<SyncTable, z.ZodType<SyncDoc>> = {
     title: z.string().min(1).max(80),
     category: z.string().max(40),
     amountSatang: Amount,
+    partnerSatang: Share,
     note: z.string().max(500),
     billMonth: MonthSchema
   }) as unknown as z.ZodType<SyncDoc>,
@@ -217,6 +222,7 @@ export const DOC_SCHEMAS: Record<SyncTable, z.ZodType<SyncDoc>> = {
     title: z.string().min(1).max(80),
     totalMonths: z.number().int().min(2).max(120),
     monthlySatang: Amount,
+    partnerSatang: Share,
     startMonth: MonthSchema,
     note: z.string().max(500)
   }) as unknown as z.ZodType<SyncDoc>,
@@ -229,8 +235,16 @@ export const DOC_SCHEMAS: Record<SyncTable, z.ZodType<SyncDoc>> = {
     dayOfMonth: z.number().int().min(1).max(31),
     startMonth: MonthSchema,
     endMonth: MonthSchema.nullable(),
+    partnerSatang: Share,
     note: z.string().max(500),
     isActive: Int01
+  }) as unknown as z.ZodType<SyncDoc>,
+  card_partner_payments: z.strictObject({
+    ...base,
+    cardId: IdSchema,
+    billMonth: MonthSchema,
+    amountSatang: Amount,
+    paidDate: IsoDateSchema
   }) as unknown as z.ZodType<SyncDoc>
 }
 

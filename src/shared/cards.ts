@@ -27,6 +27,8 @@ export interface CardCharge {
   category: string
   amountSatang: number
   note: string
+  /** The part of amountSatang that the partner pays (borrowed the card / splits the cost). 0 = all ours. */
+  partnerSatang: number
   /** Statement month this charge is billed in (derived from chargeDate + the card's statement day). */
   billMonth: string
 }
@@ -40,6 +42,8 @@ export interface CardPlan {
   monthlySatang: number
   /** Statement month of instalment #1. */
   startMonth: string
+  /** The partner's part of every monthly instalment. 0 = all ours. */
+  partnerSatang: number
   note: string
 }
 
@@ -59,6 +63,8 @@ export interface CardRecurring {
   startMonth: string
   /** Last calendar month it is charged (null = keeps going). */
   endMonth: string | null
+  /** The partner's part of every monthly charge. 0 = all ours. */
+  partnerSatang: number
   note: string
   isActive: boolean
 }
@@ -79,14 +85,18 @@ export const CardInputSchema = z.strictObject({
 })
 export type CardInput = z.infer<typeof CardInputSchema>
 
+const PartnerShare = z.number().int().min(0, { error: 'ส่วนของแฟนต้องไม่ติดลบ' }).max(MAX_SATANG, { error: 'จำนวนเงินมากเกินไป' })
+const partnerWithin = { error: 'ส่วนของแฟนต้องไม่เกินยอดทั้งหมด', path: ['partnerSatang'] }
+
 export const ChargeInputSchema = z.strictObject({
   cardId: z.uuid(),
   chargeDate: IsoDateSchema,
   title: z.string().trim().min(1, { error: 'กรุณาใส่ชื่อรายการ' }).max(80, { error: 'ชื่อรายการยาวเกิน 80 ตัวอักษร' }),
   category: z.string().trim().max(40),
   amountSatang: Money,
+  partnerSatang: PartnerShare,
   note: z.string().trim().max(500)
-})
+}).refine((v) => v.partnerSatang <= v.amountSatang, partnerWithin)
 export type ChargeInput = z.infer<typeof ChargeInputSchema>
 
 export const PlanInputSchema = z.strictObject({
@@ -95,8 +105,9 @@ export const PlanInputSchema = z.strictObject({
   totalMonths: z.number().int().min(2, { error: 'ผ่อนอย่างน้อย 2 งวด' }).max(120, { error: 'ผ่อนได้ไม่เกิน 120 งวด' }),
   monthlySatang: Money,
   startMonth: MonthSchema,
+  partnerSatang: PartnerShare,
   note: z.string().trim().max(500)
-})
+}).refine((v) => v.partnerSatang <= v.monthlySatang, partnerWithin)
 export type PlanInput = z.infer<typeof PlanInputSchema>
 
 export const CardRecurringInputSchema = z
@@ -108,10 +119,12 @@ export const CardRecurringInputSchema = z
     dayOfMonth: Day,
     startMonth: MonthSchema,
     endMonth: MonthSchema.nullable(),
+    partnerSatang: PartnerShare,
     note: z.string().trim().max(500),
     isActive: z.boolean()
   })
   .refine((v) => v.endMonth === null || v.endMonth >= v.startMonth, { error: 'เดือนสิ้นสุดต้องไม่ก่อนเดือนเริ่ม', path: ['endMonth'] })
+  .refine((v) => v.partnerSatang <= v.amountSatang, partnerWithin)
 export type CardRecurringInput = z.infer<typeof CardRecurringInputSchema>
 
 /** Suggestions shown as chips when adding a charge. */
@@ -148,6 +161,8 @@ export interface PlanLine {
   /** Statement month of the last instalment. */
   endMonth: string
   amountThisMonth: number
+  /** The partner's part of this month's instalment. */
+  partnerThisMonth: number
   /** Money still to pay from this statement onward (including it). */
   remainingTotalSatang: number
 }
@@ -164,6 +179,7 @@ export function planLine(plan: CardPlan, billMonth: string): PlanLine {
     remainingAfter: state === 'active' ? plan.totalMonths - ordinal : state === 'upcoming' ? plan.totalMonths : 0,
     endMonth: addMonths(plan.startMonth, plan.totalMonths - 1),
     amountThisMonth: state === 'active' ? plan.monthlySatang : 0,
+    partnerThisMonth: state === 'active' ? plan.partnerSatang : 0,
     remainingTotalSatang: plan.monthlySatang * remainingIncluding
   }
 }
@@ -190,7 +206,12 @@ export interface CardStatement {
   allPlans: PlanLine[]
   chargesTotal: number
   installmentsTotal: number
+  /** Everything the bank bills for this statement. */
   total: number
+  /** The partner's part of it (borrowed card / split costs). */
+  partnerTotal: number
+  /** Our own part = total - partnerTotal. This is what goes into the ledger as an expense. */
+  mineTotal: number
   /** Money still to come from instalments after this statement. */
   futureInstallmentsTotal: number
 }
@@ -207,6 +228,7 @@ export function buildStatement(
   const installments = lines.filter((l) => l.state === 'active')
   const chargesTotal = sumSatang(mine.map((c) => c.amountSatang))
   const installmentsTotal = sumSatang(installments.map((l) => l.amountThisMonth))
+  const partnerTotal = sumSatang(mine.map((c) => c.partnerSatang)) + sumSatang(installments.map((l) => l.partnerThisMonth))
   return {
     card,
     month,
@@ -219,6 +241,8 @@ export function buildStatement(
     chargesTotal,
     installmentsTotal,
     total: chargesTotal + installmentsTotal,
+    partnerTotal,
+    mineTotal: chargesTotal + installmentsTotal - partnerTotal,
     futureInstallmentsTotal: sumSatang(lines.map((l) => l.plan.monthlySatang * l.remainingAfter))
   }
 }
@@ -231,8 +255,16 @@ export interface CardBillInfo {
   status: PaymentStatus
 }
 
+/** The partner's repayment for a statement (recorded when they transfer the money back). */
+export interface PartnerPaymentInfo {
+  amountSatang: number
+  paidDate: string
+}
+
 export interface CardStatementView extends CardStatement {
   bill: CardBillInfo | null
+  /** null = the partner has not paid this statement's part yet. */
+  partnerPayment: PartnerPaymentInfo | null
   /** Days until the due date (negative = past) — null once the bill is paid. */
   daysToDue: number | null
 }
@@ -241,6 +273,9 @@ export interface CardsOverview {
   month: string
   cards: CardStatementView[]
   totalDue: number
+  /** Our own part of every statement / the partner's part. */
+  totalMine: number
+  totalPartner: number
   chargesTotal: number
   installmentsTotal: number
 }
@@ -254,6 +289,8 @@ export function overviewOf(month: string, cards: Array<Omit<CardStatementView, '
     month,
     cards: views,
     totalDue: sumSatang(views.map((v) => v.total)),
+    totalMine: sumSatang(views.map((v) => v.mineTotal)),
+    totalPartner: sumSatang(views.map((v) => v.partnerTotal)),
     chargesTotal: sumSatang(views.map((v) => v.chargesTotal)),
     installmentsTotal: sumSatang(views.map((v) => v.installmentsTotal))
   }

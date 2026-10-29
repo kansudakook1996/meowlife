@@ -113,6 +113,7 @@ const bridge: MeowBridge = {
         remove: (id) => ipcRenderer.invoke(ch('cards', 'recurring.remove'), id),
         restore: (id) => ipcRenderer.invoke(ch('cards', 'recurring.restore'), id)
       },
+      partnerPaid: (cardId, month, paid) => ipcRenderer.invoke(ch('cards', 'partnerPaid'), { cardId, month, paid }),
       createBill: (cardId, month) => ipcRenderer.invoke(ch('cards', 'createBill'), { cardId, month })
     },    calendar: { range: (from, to) => ipcRenderer.invoke(ch('calendar', 'range'), { from, to }) },
     reminders: { due: () => ipcRenderer.invoke(ch('reminders', 'due')) },

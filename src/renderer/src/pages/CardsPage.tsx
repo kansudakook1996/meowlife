@@ -49,12 +49,22 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
     }
   }
 
+  const partnerPaid = async (cardId: string, paid: boolean): Promise<void> => {
+    try {
+      await unwrap(meow().portal.cards.partnerPaid(cardId, month, paid))
+      refresh()
+      toast(paid ? 'บันทึกว่าแฟนโอนแล้ว' : 'ยกเลิกการติ๊กแล้ว')
+    } catch (e) {
+      toast(errorMessage(e), { tone: 'error' })
+    }
+  }
+
   const createAllBills = async (): Promise<void> => {
     if (!data) return
     let made = 0
     try {
       for (const c of data.cards) {
-        if (c.total > 0 && !c.bill) {
+        if (c.mineTotal > 0 && !c.bill) {
           await unwrap(meow().portal.cards.createBill(c.card.id, month))
           made++
         }
@@ -67,7 +77,7 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
   }
 
   const hasCards = (allCards?.length ?? 0) > 0
-  const missingBills = data?.cards.filter((c) => c.total > 0 && !c.bill).length ?? 0
+  const missingBills = data?.cards.filter((c) => c.mineTotal > 0 && !c.bill).length ?? 0
 
   return (
     <div className="page">
@@ -111,6 +121,7 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
             <span className="label">💳 ต้องจ่ายรวมทุกใบ</span>
             <span className="value">{formatSatang(data.totalDue)}</span>
             <span className="muted small">{data.cards.length} ใบ รอบบิล{formatThaiMonth(month)}</span>
+            {data.totalPartner > 0 && <span className="small">ส่วนของเรา {formatSatang(data.totalMine)} · ส่วนของแฟน {formatSatang(data.totalPartner)}</span>}
           </div>
           <div className="summary-card summary-income">
             <span className="label">🛒 ยอดใช้จ่าย</span>
@@ -139,6 +150,7 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
           onAddRecurring={() => setEditing({ type: 'recurring', cardId: s.card.id, rule: null })}
           onEditRecurring={(rule) => setEditing({ type: 'recurring', cardId: s.card.id, rule })}
           onDeleteRecurring={(rule) => void delRec(rule.id, rule.title)}
+          onPartnerPaid={(paid) => void partnerPaid(s.card.id, paid)}
         />
       ))}
 
@@ -183,11 +195,12 @@ function CardSection(props: {
   onAddRecurring: () => void
   onEditRecurring: (r: CardRecurring) => void
   onDeleteRecurring: (r: CardRecurring) => void
+  onPartnerPaid: (paid: boolean) => void
 }): React.JSX.Element {
   const { s } = props
   const [showOld, setShowOld] = useState(false)
   const old = s.allPlans.filter((l) => l.state !== 'active')
-  const billStale = s.bill && !s.bill.isPaid && s.bill.amountSatang !== s.total
+  const billStale = s.bill && !s.bill.isPaid && s.bill.amountSatang !== s.mineTotal
   const due =
     s.bill?.isPaid ? 'จ่ายแล้ว' : s.daysToDue === null ? '' : s.daysToDue < 0 ? `เลยกำหนด ${-s.daysToDue} วัน` : s.daysToDue === 0 ? 'ครบกำหนดวันนี้' : `อีก ${s.daysToDue} วัน`
 
@@ -205,6 +218,7 @@ function CardSection(props: {
         <div style={{ textAlign: 'right' }}>
           <div className="muted small">ยอดที่ต้องจ่ายรอบนี้</div>
           <div style={{ fontSize: '1.6rem', fontWeight: 600 }}>{formatSatang(s.total)}</div>
+          {s.partnerTotal > 0 && <div className="small">ส่วนของเรา <strong>{formatSatang(s.mineTotal)}</strong> · ส่วนของแฟน {formatSatang(s.partnerTotal)}</div>}
         </div>
       </div>
 
@@ -217,14 +231,35 @@ function CardSection(props: {
         ) : (
           <span className="badge badge-unpaid">ยังไม่ได้สร้างรายการจ่ายบิล</span>
         )}
-        {!s.bill?.isPaid && s.total > 0 && (
+        {!s.bill?.isPaid && s.mineTotal > 0 && (
           <button type="button" className={billStale || !s.bill ? 'btn btn-primary' : 'btn btn-secondary'} onClick={props.onBill}>
-            {!s.bill ? 'สร้างรายการจ่ายบิล' : billStale ? `อัปเดตยอดบิลเป็น ${formatSatang(s.total)}` : 'อัปเดตยอดบิล'}
+            {!s.bill ? 'สร้างรายการจ่ายบิล' : billStale ? `อัปเดตยอดบิลเป็น ${formatSatang(s.mineTotal)}` : 'อัปเดตยอดบิล'}
           </button>
         )}
         <button type="button" className="btn btn-ghost" onClick={props.onEditCard}>แก้ไขบัตร</button>
         <button type="button" className="icon-btn" aria-label={`ลบบัตร ${s.card.name}`} title="ลบบัตร" onClick={props.onDeleteCard}>🗑️</button>
       </div>
+
+      {s.partnerTotal > 0 && (
+        <div className="info" style={{ marginBottom: 12 }}>
+          <div>
+            <strong>แฟนต้องโอนให้ {formatSatang(s.partnerTotal)}</strong> (ยอดเต็ม {formatSatang(s.total)} · ส่วนของเรา {formatSatang(s.mineTotal)})
+            {s.partnerPayment && (
+              <> — โอนแล้ว {formatSatang(s.partnerPayment.amountSatang)} เมื่อ {formatThaiDate(s.partnerPayment.paidDate)}{s.partnerPayment.amountSatang !== s.partnerTotal && ' (ยอดเปลี่ยนไปแล้ว ติ๊กใหม่เพื่ออัปเดต)'}</>
+            )}
+          </div>
+          <div className="toolbar" style={{ marginTop: 8 }}>
+            {s.partnerPayment && s.partnerPayment.amountSatang === s.partnerTotal ? (
+              <>
+                <span className="badge badge-paid"><span aria-hidden="true">✓</span> แฟนโอนแล้ว</span>
+                <button type="button" className="btn btn-ghost" onClick={() => props.onPartnerPaid(false)}>ยกเลิกการติ๊ก</button>
+              </>
+            ) : (
+              <button type="button" className="btn btn-secondary" onClick={() => props.onPartnerPaid(true)}>{s.partnerPayment ? 'อัปเดต: แฟนโอนแล้ว' : 'แฟนโอนแล้ว'}</button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="card-title">
         <h3>🔁 รายการประจำทุกเดือน ({s.recurring.length})</h3>
@@ -241,6 +276,7 @@ function CardSection(props: {
                 <div className="tx-meta">
                   <span>ทุกวันที่ {r.dayOfMonth}</span>
                   {r.category && <span className="badge badge-unpaid">{r.category}</span>}
+                  {r.partnerSatang > 0 && <PartnerBadge share={r.partnerSatang} total={r.amountSatang} />}
                   <span>{formatThaiMonth(r.startMonth)} ถึง {r.endMonth ? formatThaiMonth(r.endMonth) : 'ไม่กำหนดสิ้นสุด'}</span>
                 </div>
               </div>
@@ -266,7 +302,7 @@ function CardSection(props: {
               <li key={c.id} className="tx-row" style={{ gridTemplateColumns: 'minmax(0, 1fr) auto auto' }}>
                 <div className="tx-main">
                   <div className="tx-title">{c.title}</div>
-                  <div className="tx-meta"><span>{formatThaiDate(c.chargeDate)}</span>{c.category && <span className="badge badge-unpaid">{c.category}</span>}{c.note && <span>{c.note}</span>}</div>
+                  <div className="tx-meta"><span>{formatThaiDate(c.chargeDate)}</span>{c.category && <span className="badge badge-unpaid">{c.category}</span>}{c.partnerSatang > 0 && <PartnerBadge share={c.partnerSatang} total={c.amountSatang} />}{c.note && <span>{c.note}</span>}</div>
                 </div>
                 <span className="tx-amount expense">{formatSatang(c.amountSatang)}</span>
                 <span className="tx-actions">
@@ -307,7 +343,7 @@ function PlanRow(props: { line: PlanLine; onEdit: (l: PlanLine) => void; onDelet
     <li className="tx-row" style={{ gridTemplateColumns: 'minmax(0, 1fr) auto auto' }}>
       <div className="tx-main">
         <div className="tx-title">{line.plan.title}</div>
-        <div className="tx-meta"><span>{planText(line, formatThaiMonth)}</span></div>
+        <div className="tx-meta"><span>{planText(line, formatThaiMonth)}</span>{line.plan.partnerSatang > 0 && <PartnerBadge share={line.plan.partnerSatang} total={line.plan.monthlySatang} />}</div>
         <div className="bar-track" role="progressbar" aria-label={`ความคืบหน้าการผ่อน ${line.plan.title}`} aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} style={{ marginTop: 4 }}>
           <div className="bar-fill" style={{ width: `${pct}%` }} />
         </div>
@@ -397,6 +433,7 @@ function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; 
   const [title, setTitle] = useState(c?.title ?? '')
   const [category, setCategory] = useState(c?.category ?? '')
   const [amount, setAmount] = useState(c ? satangToInput(c.amountSatang) : '')
+  const [partner, setPartner] = useState(c?.partnerSatang ? satangToInput(c.partnerSatang) : '')
   const [note, setNote] = useState(c?.note ?? '')
   const [error, setError] = useState<string | null>(null)
 
@@ -406,7 +443,9 @@ function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; 
     if (!cardId) return setError('เลือกบัตรก่อนนะ')
     if (!title.trim()) return setError('ใส่ชื่อรายการก่อนนะ เช่น "ข้าวเที่ยง", "ซื้อของใช้"')
     if (!amountSatang) return setError('ใส่จำนวนเงินที่มากกว่า 0 เช่น 250 หรือ 1,250.50')
-    const input = { cardId, chargeDate: date, title: title.trim(), category: category.trim(), amountSatang, note: note.trim() }
+    const partnerSatang = parsePartner(partner, amountSatang)
+    if (partnerSatang === null) return setError('ส่วนของแฟนอ่านไม่ได้ หรือเกินยอดทั้งหมด')
+    const input = { cardId, chargeDate: date, title: title.trim(), category: category.trim(), amountSatang, partnerSatang, note: note.trim() }
     try {
       if (c) await unwrap(meow().portal.cards.charges.update(c.id, input))
       else await unwrap(meow().portal.cards.charges.create(input))
@@ -440,6 +479,7 @@ function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; 
         <label htmlFor="ch-amount">จำนวนเงิน (บาท)</label>
         <input id="ch-amount" className="input input-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
       </div>
+      <PartnerField id="ch-partner" total={amount} value={partner} onChange={setPartner} />
       <div className="field">
         <label htmlFor="ch-note">หมายเหตุ</label>
         <input id="ch-note" className="input" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} />
@@ -456,6 +496,7 @@ function PlanForm(props: { cardId: string; line: PlanLine | null; month: string;
   const p = props.line?.plan ?? null
   const [title, setTitle] = useState(p?.title ?? '')
   const [monthly, setMonthly] = useState(p ? satangToInput(p.monthlySatang) : '')
+  const [partner, setPartner] = useState(p?.partnerSatang ? satangToInput(p.partnerSatang) : '')
   const [total, setTotal] = useState(String(p?.totalMonths ?? 10))
   const [current, setCurrent] = useState(String(p ? Math.max(1, monthsBetween(p.startMonth, props.month) + 1) : 1))
   const [error, setError] = useState<string | null>(null)
@@ -472,7 +513,9 @@ function PlanForm(props: { cardId: string; line: PlanLine | null; month: string;
     if (!title.trim()) return setError('ใส่ชื่อรายการผ่อนก่อนนะ เช่น "ผ่อนโทรศัพท์"')
     if (!monthlySatang) return setError('ใส่ยอดผ่อนต่อเดือนที่มากกว่า 0')
     if (!valid) return setError('จำนวนงวดต้องตั้งแต่ 2 ขึ้นไป และงวดปัจจุบันต้องอยู่ระหว่าง 1 ถึงจำนวนงวดทั้งหมด')
-    const input = { cardId: props.cardId, title: title.trim(), totalMonths: totalN, monthlySatang, startMonth, note: '' }
+    const partnerSatang = parsePartner(partner, monthlySatang)
+    if (partnerSatang === null) return setError('ส่วนของแฟนอ่านไม่ได้ หรือเกินยอดผ่อนต่อเดือน')
+    const input = { cardId: props.cardId, title: title.trim(), totalMonths: totalN, monthlySatang, partnerSatang, startMonth, note: '' }
     try {
       if (p) await unwrap(meow().portal.cards.plans.update(p.id, { ...input, note: p.note }))
       else await unwrap(meow().portal.cards.plans.create(input))
@@ -499,6 +542,7 @@ function PlanForm(props: { cardId: string; line: PlanLine | null; month: string;
           <input id="pl-total" type="number" min={2} max={120} className="input" value={total} onChange={(e) => setTotal(e.target.value)} />
         </div>
       </div>
+      <PartnerField id="pl-partner" total={monthly} value={partner} onChange={setPartner} perMonth />
       <div className="field">
         <label htmlFor="pl-current">รอบบิล{formatThaiMonth(props.month)} เป็นงวดที่</label>
         <input id="pl-current" type="number" min={1} max={valid ? totalN : 120} className="input" value={current} onChange={(e) => setCurrent(e.target.value)} />
@@ -533,6 +577,7 @@ function RecurringForm(props: { cardId: string; rule: CardRecurring | null; cate
   const [title, setTitle] = useState(r?.title ?? '')
   const [category, setCategory] = useState(r?.category ?? '')
   const [amount, setAmount] = useState(r ? satangToInput(r.amountSatang) : '')
+  const [partner, setPartner] = useState(r?.partnerSatang ? satangToInput(r.partnerSatang) : '')
   const [day, setDay] = useState(String(r?.dayOfMonth ?? 1))
   const [startMonth, setStartMonth] = useState(r?.startMonth ?? todayIso().slice(0, 7))
   const [endMonth, setEndMonth] = useState(r?.endMonth ?? '')
@@ -548,7 +593,9 @@ function RecurringForm(props: { cardId: string; rule: CardRecurring | null; cate
     if (!Number.isInteger(dayN) || dayN < 1 || dayN > 31) return setError('วันที่ตัดบัตรต้องเป็นเลข 1–31')
     if (!/^\d{4}-\d{2}$/.test(startMonth)) return setError('เลือกเดือนที่เริ่มด้วยนะ')
     if (endMonth && endMonth < startMonth) return setError('เดือนสิ้นสุดต้องไม่ก่อนเดือนที่เริ่ม')
-    const input = { cardId: props.cardId, title: title.trim(), category, amountSatang, dayOfMonth: dayN, startMonth, endMonth: endMonth || null, note: r?.note ?? '', isActive }
+    const partnerSatang = parsePartner(partner, amountSatang)
+    if (partnerSatang === null) return setError('ส่วนของแฟนอ่านไม่ได้ หรือเกินจำนวนเงินต่อเดือน')
+    const input = { cardId: props.cardId, title: title.trim(), category, amountSatang, partnerSatang, dayOfMonth: dayN, startMonth, endMonth: endMonth || null, note: r?.note ?? '', isActive }
     try {
       if (r) await unwrap(meow().portal.cards.recurring.update(r.id, input))
       else await unwrap(meow().portal.cards.recurring.create(input))
@@ -576,6 +623,7 @@ function RecurringForm(props: { cardId: string; rule: CardRecurring | null; cate
           <input id="rc-day" type="number" min={1} max={31} className="input" value={day} onChange={(e) => setDay(e.target.value)} />
         </div>
       </div>
+      <PartnerField id="rc-partner" total={amount} value={partner} onChange={setPartner} perMonth />
       <div className="field-row">
         <div className="field">
           <label htmlFor="rc-start">เริ่มเดือน</label>
@@ -593,5 +641,42 @@ function RecurringForm(props: { cardId: string; rule: CardRecurring | null; cate
         <button type="submit" className="btn btn-primary">บันทึก</button>
       </div>
     </form>
+  )
+}
+
+/** Partner's share typed in baht; empty/0 = none. Returns null when unreadable or larger than the whole amount. */
+function parsePartner(text: string, totalSatang: number): number | null {
+  const v = text.trim()
+  if (!v || Number(v.replace(/,/g, '')) === 0) return 0
+  const satang = parseBahtToSatang(v)
+  return satang !== null && satang !== 0 && satang <= totalSatang ? satang : null
+}
+
+function PartnerBadge(props: { share: number; total: number }): React.JSX.Element {
+  return (
+    <span className="badge badge-unpaid">
+      {props.share >= props.total ? 'แฟนจ่ายทั้งหมด' : `แฟนช่วย ${formatSatang(props.share)}`}
+    </span>
+  )
+}
+
+/** "Who pays?" — ours (0), the partner's whole amount, half, or any amount. The total is the text of the amount field above. */
+function PartnerField(props: { id: string; total: string; value: string; onChange: (v: string) => void; perMonth?: boolean }): React.JSX.Element {
+  const total = parseBahtToSatang(props.total)
+  const share = parsePartner(props.value, total ?? 0)
+  const mode = !props.value.trim() || share === 0 ? 'mine' : total !== null && share === total ? 'all' : 'split'
+  return (
+    <div className="field">
+      <span className="field-label" id={`${props.id}-label`}>ใครจ่าย{props.perMonth ? ' (ต่อเดือน)' : ''}</span>
+      <div className="segmented" role="group" aria-labelledby={`${props.id}-label`} style={{ flexWrap: 'wrap', borderRadius: 12 }}>
+        <button type="button" aria-pressed={mode === 'mine'} onClick={() => props.onChange('')}>เราจ่ายเอง</button>
+        <button type="button" aria-pressed={mode === 'all'} disabled={total === null} onClick={() => props.onChange(props.total)}>แฟนจ่ายทั้งหมด</button>
+        <button type="button" aria-pressed={mode === 'split'} disabled={total === null} onClick={() => total !== null && props.onChange(satangToInput(Math.floor(total / 2)))}>หารครึ่ง</button>
+      </div>
+      <label htmlFor={props.id} className="muted small">ส่วนของแฟน (บาท) — ใส่เองได้ ว่างไว้ = เราจ่ายเอง</label>
+      <input id={props.id} className="input input-amount" inputMode="decimal" value={props.value} onChange={(e) => props.onChange(e.target.value)} placeholder="0.00" />
+      {total !== null && share !== null && share > 0 && <p className="muted small">ส่วนของเรา {formatSatang(total - share)} · ส่วนของแฟน {formatSatang(share)}</p>}
+      {share === null && props.value.trim() !== '' && <p className="muted small">ส่วนของแฟนอ่านไม่ได้ หรือเกินยอดทั้งหมด</p>}
+    </div>
   )
 }

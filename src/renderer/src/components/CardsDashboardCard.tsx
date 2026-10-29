@@ -20,6 +20,7 @@ export function CardsDashboardCard(): React.JSX.Element | null {
       <p style={{ marginBottom: 8 }}>
         ต้องจ่ายรวม <strong>{formatSatang(data.totalDue)}</strong>
         <span className="muted small"> (ใช้จ่าย {formatSatang(data.chargesTotal)} + ผ่อน {formatSatang(data.installmentsTotal)})</span>
+        {data.totalPartner > 0 && <span className="small"> · ส่วนของเรา <strong>{formatSatang(data.totalMine)}</strong> · แฟนโอนให้ {formatSatang(data.totalPartner)}</span>}
       </p>
       <ul className="tx-list">
         {data.cards.map((c) => (
@@ -30,14 +31,15 @@ export function CardsDashboardCard(): React.JSX.Element | null {
                 <span>ครบกำหนด {formatThaiDate(c.dueDate)}</span>
                 {c.bill?.isPaid ? (
                   <span className="badge badge-paid"><span aria-hidden="true">✓</span> จ่ายแล้ว</span>
-                ) : c.daysToDue !== null && c.daysToDue < 0 && c.total > 0 ? (
+                ) : c.daysToDue !== null && c.daysToDue < 0 && c.mineTotal > 0 ? (
                   <span className="badge badge-overdue"><span aria-hidden="true">!</span> เลยกำหนด {-c.daysToDue} วัน</span>
-                ) : c.daysToDue !== null && c.daysToDue <= 5 && c.total > 0 ? (
+                ) : c.daysToDue !== null && c.daysToDue <= 5 && c.mineTotal > 0 ? (
                   <span className="badge badge-due_soon"><span aria-hidden="true">⏰</span> {c.daysToDue === 0 ? 'ครบกำหนดวันนี้' : `อีก ${c.daysToDue} วัน`}</span>
                 ) : (
                   <span className="badge badge-unpaid"><span aria-hidden="true">○</span> ยังไม่จ่าย</span>
                 )}
-                {!c.bill && c.total > 0 && <span className="muted">ยังไม่ได้สร้างรายการจ่ายบิล</span>}
+                {!c.bill && c.mineTotal > 0 && <span className="muted">ยังไม่ได้สร้างรายการจ่ายบิล</span>}
+                {c.partnerTotal > 0 && (c.partnerPayment && c.partnerPayment.amountSatang === c.partnerTotal ? <span className="badge badge-paid"><span aria-hidden="true">✓</span> แฟนโอนแล้ว</span> : <span className="badge badge-due_soon"><span aria-hidden="true">○</span> รอแฟนโอน {formatSatang(c.partnerTotal)}</span>)}
               </div>
             </div>
             <span className="tx-amount expense">{formatSatang(c.total)}</span>
