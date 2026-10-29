@@ -101,6 +101,8 @@ export interface PortalBridge {
   }
   cards: {
     list(): R<CreditCard[]>
+    /** Save the order of the cards (first = shown first). */
+    reorder(ids: string[]): R<number>
     create(input: CardInput): R<CreditCard>
     update(id: string, input: CardInput): R<CreditCard>
     remove(id: string): R<void>

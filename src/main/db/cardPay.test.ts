@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { foldSlices } from '@shared/analytics'
 import { cardAnalytics } from './cardAnalytics'
-import { cardBillId, createCard, createCardBill, createCharge, createPlan, refreshCardBills, setCardPaid, setPartnerPaid } from './cardRepo'
+import { cardBillId, createCard, listCards, reorderCards, createCardBill, createCharge, createPlan, refreshCardBills, setCardPaid, setPartnerPaid } from './cardRepo'
 import { openMemoryDatabase, type Db } from './connection'
 import { DEFAULT_CATEGORIES } from './defaults'
 import { createTransaction, getTransaction, listMonth } from './transactionRepo'
@@ -121,5 +121,19 @@ describe('card analytics', () => {
     expect(folded).toHaveLength(6)
     expect(folded.at(-1)).toMatchObject({ name: 'อื่น ๆ', totalSatang: 995 + 994 + 993 + 992 + 991 })
     expect(foldSlices(slices.slice(0, 3), 6)).toHaveLength(3)
+  })
+})
+
+describe('card order', () => {
+  it('keeps the order the user chose and marks only moved cards dirty', () => {
+    const a = card()
+    const b = createCard(db, { name: 'SCB', issuer: '', statementDay: 5, dueDay: 25, limitSatang: null, isActive: true })
+    const c = createCard(db, { name: 'KBank', issuer: '', statementDay: 10, dueDay: 28, limitSatang: null, isActive: true })
+    expect(listCards(db).map((x) => x.name)).toEqual(['KTC', 'SCB', 'KBank'])
+    expect(reorderCards(db, [c.id, a.id, b.id])).toBe(3)
+    expect(listCards(db).map((x) => x.name)).toEqual(['KBank', 'KTC', 'SCB'])
+    expect(reorderCards(db, [c.id, a.id, b.id])).toBe(0)
+    expect(reorderCards(db, [c.id, b.id, a.id])).toBe(2)
+    expect(listCards(db).map((x) => x.name)).toEqual(['KBank', 'SCB', 'KTC'])
   })
 })

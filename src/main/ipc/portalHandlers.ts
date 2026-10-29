@@ -15,7 +15,7 @@ import { MAX_SATANG } from '@shared/money'
 import { CardInputSchema, CardRecurringInputSchema, ChargeInputSchema, PlanInputSchema } from '@shared/cards'
 import { reorderTransactions } from '../db/transactionRepo'
 import { cardAnalytics } from '../db/cardAnalytics'
-import { cardsOverview, createCard, createCardBill, createCardRecurring, createCharge, createPlan, listCards, refreshCardBills, setCardPaid, setPartnerPaid, updateCard, updateCardRecurring, updateCharge, updatePlan } from '../db/cardRepo'
+import { cardsOverview, createCard, createCardBill, createCardRecurring, createCharge, createPlan, listCards, refreshCardBills, reorderCards, setCardPaid, setPartnerPaid, updateCard, updateCardRecurring, updateCharge, updatePlan } from '../db/cardRepo'
 import type { Db } from '../db/connection'
 import {
   activityInsights,
@@ -109,6 +109,7 @@ export function registerPortalHandlers(db: Db, onSettings: (s: AppSettings) => v
     return result
   }
   handle(c('cards', 'list'), NoInput, () => listCards(db))
+  handle(c('cards', 'reorder'), z.array(IdSchema).max(100), (ids) => reorderCards(db, ids))
   handle(c('cards', 'create'), CardInputSchema, (i) => cardChange(() => createCard(db, i)))
   handle(c('cards', 'update'), Update(CardInputSchema), ({ id, input }) => cardChange(() => updateCard(db, id, input)))
   handle(c('cards', 'remove'), IdSchema, (id) => cardChange(() => removeRow(db, 'credit_cards', id)))

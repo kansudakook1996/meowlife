@@ -108,48 +108,46 @@ test('recurring bill is generated for the month', async () => {
   await app.close()
 })
 
-test('ledger items can be put in order of importance; the order survives a restart', async () => {
+test('ledger items can be dragged into order of importance; the order survives a restart', async () => {
   let { app, page } = await launch()
   await page.getByRole('button', { name: 'รายการรับ-จ่าย' }).click()
   await page.getByRole('button', { name: 'เรียงตามความสำคัญ' }).click()
   const rows = page.locator('li.tx-row')
   await expect(rows).toHaveCount(3)
+  // no rank numbers or arrow buttons: the order is changed by dragging (or Alt + arrows from the keyboard)
+  await expect(page.getByRole('button', { name: /^เลื่อน / })).toHaveCount(0)
 
-  // move the salary all the way to the top (retry until the ▲ button has become disabled)
-  const up = page.getByRole('button', { name: 'เลื่อน เงินเดือน ขึ้น' })
-  await expect(async () => {
-    if (await up.isEnabled()) await up.click()
-    await expect(up).toBeDisabled({ timeout: 800 })
-  }).toPass()
-  await expect(rows.first()).toContainText('เงินเดือน')
+  /** Press on a row's title and drag it onto the first row. */
+  const dragToTop = async (index: number): Promise<void> => {
+    const grab = await rows.nth(index).locator('.tx-title').boundingBox()
+    const target = await rows.first().boundingBox()
+    expect(grab && target).toBeTruthy()
+    await page.mouse.move(grab!.x + 10, grab!.y + grab!.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(grab!.x + 10, (grab!.y + target!.y) / 2, { steps: 8 })
+    await page.mouse.move(grab!.x + 10, target!.y + 6, { steps: 8 })
+    await page.mouse.up()
+  }
+
+  await dragToTop(2)
+  const first = (await rows.first().locator('.tx-title').innerText()).trim()
   await page.screenshot({ path: 'test-results/21-ledger-priority.png' })
+  await dragToTop(1)
+  await expect(rows.nth(1)).toContainText(first) // the previous first row is now second
 
-  // and one step down again with the ▼ button
-  await page.getByRole('button', { name: 'เลื่อน เงินเดือน ลง' }).click()
-  await expect(rows.nth(1)).toContainText('เงินเดือน')
-  await page.getByRole('button', { name: 'เลื่อน เงินเดือน ขึ้น' }).click()
-  await expect(rows.first()).toContainText('เงินเดือน')
-
-  // click a row and drag it with the mouse: take the last row up to the top
+  // keyboard: focus a row and press Alt + ArrowUp / ArrowDown
   const lastTitle = (await rows.last().locator('.tx-title').innerText()).trim()
-  const grab = await rows.last().locator('.tx-title').boundingBox()
-  const target = await rows.first().boundingBox()
-  expect(grab && target).toBeTruthy()
-  await page.mouse.move(grab!.x + 10, grab!.y + grab!.height / 2)
-  await page.mouse.down()
-  await page.mouse.move(grab!.x + 10, (grab!.y + target!.y) / 2, { steps: 8 })
-  await page.mouse.move(grab!.x + 10, target!.y + 6, { steps: 8 })
-  await page.mouse.up()
-  await expect(rows.first()).toContainText(lastTitle)
-  await expect(rows.nth(1)).toContainText('เงินเดือน')
-  // put the salary back on top with the buttons so the rest of the test is unchanged
-  await page.getByRole('button', { name: 'เลื่อน เงินเดือน ขึ้น' }).click()
-  await expect(rows.first()).toContainText('เงินเดือน')
+  await rows.last().focus()
+  await page.keyboard.press('Alt+ArrowUp')
+  await expect(rows.nth(1)).toContainText(lastTitle)
+  await page.keyboard.press('Alt+ArrowDown')
+  await expect(rows.last()).toContainText(lastTitle)
 
+  const order = await rows.locator('.tx-title').allInnerTexts()
   await app.close()
   ;({ app, page } = await launch())
   await page.getByRole('button', { name: 'รายการรับ-จ่าย' }).click()
-  await expect(page.locator('li.tx-row').first()).toContainText('เงินเดือน') // the chosen view and order were remembered
+  await expect(page.locator('li.tx-row').locator('.tx-title')).toHaveText(order) // chosen view and order were remembered
   await page.getByRole('button', { name: 'เรียงตามวันที่' }).click()
   await expect(page.locator('.date-group').first()).toBeVisible()
   await app.close()

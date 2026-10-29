@@ -4,13 +4,10 @@ import type { TransactionView } from '@shared/types'
 import { usePortal } from '../lib/portal'
 import { StatusBadge } from './StatusBadge'
 
-/** Shown in the importance-order view: where the item sits and how to move it (buttons or drag and drop). */
+/** Importance-order view: press the row and drag it, or focus it and press Alt + arrow keys. */
 export interface RowOrder {
-  rank: number
-  canUp: boolean
-  canDown: boolean
-  onUp: () => void
-  onDown: () => void
+  /** Alt + ArrowUp / ArrowDown on the focused row (the keyboard way to reorder). */
+  onMove: (delta: -1 | 1) => void
   dragging: boolean
   /** Press on the row and drag it up or down (pointer based, so it works the same everywhere). */
   onPointerDown: (e: React.PointerEvent<HTMLLIElement>) => void
@@ -31,16 +28,11 @@ export function TransactionRow({ item, showDate = false, order }: { item: Transa
     <li
       className="tx-row"
       data-txid={order ? item.id : undefined}
-      style={order ? { gridTemplateColumns: 'auto auto minmax(0, 1fr) auto auto', cursor: order.dragging ? 'grabbing' : 'grab', userSelect: 'none', background: order.dragging ? 'var(--sky)' : undefined, transform: order.dragging ? 'scale(1.01)' : undefined } : undefined}
+      tabIndex={order ? 0 : undefined}
+      onKeyDown={order ? (e) => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); order.onMove(e.key === 'ArrowUp' ? -1 : 1) } } : undefined}
+      style={order ? { cursor: order.dragging ? 'grabbing' : 'grab', userSelect: 'none', background: order.dragging ? 'var(--sky)' : undefined, transform: order.dragging ? 'scale(1.01)' : undefined } : undefined}
       onPointerDown={order ? order.onPointerDown : undefined}
     >
-      {order && (
-        <div className="tx-order" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-          <button type="button" className="icon-btn" aria-label={`เลื่อน ${item.title} ขึ้น`} title="เลื่อนขึ้น (สำคัญขึ้น)" disabled={!order.canUp} onClick={order.onUp}>▲</button>
-          <span className="muted small" aria-label={`ลำดับที่ ${order.rank}`} title="ลากเพื่อจัดลำดับได้">{order.rank}</span>
-          <button type="button" className="icon-btn" aria-label={`เลื่อน ${item.title} ลง`} title="เลื่อนลง (สำคัญน้อยลง)" disabled={!order.canDown} onClick={order.onDown}>▼</button>
-        </div>
-      )}
       <span className={`tx-icon ${item.kind}`} aria-hidden="true">
         {item.categoryIcon ?? (item.kind === 'income' ? '💰' : '💸')}
       </span>

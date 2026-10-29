@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { addDays, addMonths, formatThaiDate, formatThaiMonth, monthsBetween, todayIso } from '@shared/dates'
 import {
   planText,
@@ -16,6 +16,7 @@ import { Icon } from '../components/Icon'
 import { Modal } from '../components/Modal'
 import { MonthPicker } from '../components/MonthPicker'
 import { errorMessage, meow, unwrap } from '../lib/api'
+import { autoScrollNear } from '../lib/dragScroll'
 import { usePortal } from '../lib/portal'
 import { useDeleteWithUndo } from '../lib/portalApi'
 import { useLoad } from '../lib/useLoad'
@@ -86,6 +87,68 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
     }
   }
 
+  // Card order: drag the grip of a card up or down (or Alt + arrow keys); the order is saved when you let go.
+  const [liveIds, setLiveIds] = useState<string[] | null>(null)
+  const [dragCardId, setDragCardId] = useState<string | null>(null)
+  const savedCards = useMemo(() => data?.cards ?? [], [data])
+  const orderedCards = useMemo(() => {
+    if (!liveIds) return savedCards
+    const byId = new Map(savedCards.map((c) => [c.card.id, c]))
+    const live = liveIds.map((id) => byId.get(id)).filter((c): c is CardStatementView => c !== undefined)
+    return live.length === savedCards.length ? live : savedCards
+  }, [savedCards, liveIds])
+
+  const saveCardOrder = async (ids: string[]): Promise<void> => {
+    try {
+      await unwrap(meow().portal.cards.reorder(ids))
+      refresh()
+    } catch (e) {
+      toast(errorMessage(e), { tone: 'error' })
+    }
+  }
+  const moveCard = (id: string, delta: -1 | 1): void => {
+    const ids = orderedCards.map((c) => c.card.id)
+    const from = ids.indexOf(id)
+    const to = from + delta
+    if (from < 0 || to < 0 || to >= ids.length) return
+    ;[ids[from], ids[to]] = [ids[to]!, ids[from]!]
+    void saveCardOrder(ids)
+  }
+  const startCardDrag = (e: React.PointerEvent, id: string): void => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const start = orderedCards.map((c) => c.card.id)
+    let current = start
+    setDragCardId(id)
+    setLiveIds(start)
+    const onMove = (ev: PointerEvent): void => {
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY)
+      autoScrollNear(hit, ev.clientY)
+      const row = hit?.closest<HTMLElement>('section[data-cardid]')
+      const over = row?.dataset['cardid']
+      if (!row || !over || over === id) return
+      const from = current.indexOf(id)
+      const to = current.indexOf(over)
+      const rect = row.getBoundingClientRect()
+      if ((to > from && ev.clientY < rect.top + rect.height / 2) || (to < from && ev.clientY > rect.top + rect.height / 2)) return
+      const next = current.filter((x) => x !== id)
+      next.splice(to, 0, id)
+      current = next
+      setLiveIds(next)
+    }
+    const onEnd = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onEnd)
+      window.removeEventListener('pointercancel', onEnd)
+      setDragCardId(null)
+      if (current.some((x, i) => x !== start[i])) void saveCardOrder(current).finally(() => setLiveIds(null))
+      else setLiveIds(null)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onEnd)
+    window.addEventListener('pointercancel', onEnd)
+  }
+
   const hasCards = (allCards?.length ?? 0) > 0
   const missingBills = data?.cards.filter((c) => c.mineTotal > 0 && !c.bill).length ?? 0
 
@@ -144,10 +207,14 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
         </section>
       )}
 
-      {data?.cards.map((s) => (
+      {orderedCards.map((s) => (
         <CardSection
           key={s.card.id}
           s={s}
+          dragging={dragCardId === s.card.id}
+          compact={dragCardId !== null}
+          onGripPointerDown={(e) => startCardDrag(e, s.card.id)}
+          onMoveCard={(d) => moveCard(s.card.id, d)}
           onBill={() => void createBill(s.card.id)}
           onEditCard={() => setEditing({ type: 'card', card: s.card })}
           onDeleteCard={() => void delCard(s.card.id, s.card.name)}
@@ -208,6 +275,11 @@ function CardSection(props: {
   onDeleteRecurring: (r: CardRecurring) => void
   onPartnerPaid: (paid: boolean) => void
   onPaid: (paid: boolean) => void
+  dragging: boolean
+  /** While any card is being dragged every card folds to its title row, so they all fit on screen and can be passed over. */
+  compact: boolean
+  onGripPointerDown: (e: React.PointerEvent) => void
+  onMoveCard: (delta: -1 | 1) => void
 }): React.JSX.Element {
   const { s } = props
   const [showOld, setShowOld] = useState(false)
@@ -215,11 +287,34 @@ function CardSection(props: {
   const due =
     s.bill?.isPaid ? 'จ่ายแล้ว' : s.daysToDue === null ? '' : s.daysToDue < 0 ? `เลยกำหนด ${-s.daysToDue} วัน` : s.daysToDue === 0 ? 'ครบกำหนดวันนี้' : `อีก ${s.daysToDue} วัน`
 
+  if (props.compact) {
+    return (
+      <section className="card" aria-labelledby={`card-${s.card.id}`} data-cardid={s.card.id} style={props.dragging ? { background: 'var(--sky)' } : undefined}>
+        <div className="card-title">
+          <h2 id={`card-${s.card.id}`}>
+            <span aria-hidden="true" style={{ marginRight: 6 }}>⠿</span>💳 {s.card.name}
+          </h2>
+          <strong>{formatSatang(s.total)}</strong>
+        </div>
+      </section>
+    )
+  }
+
   return (
-    <section className="card" aria-labelledby={`card-${s.card.id}`}>
+    <section className="card" aria-labelledby={`card-${s.card.id}`} data-cardid={s.card.id} style={props.dragging ? { background: 'var(--sky)', transform: 'scale(1.005)' } : undefined}>
       <div className="card-title" style={{ flexWrap: 'wrap' }}>
         <div>
-          <h2 id={`card-${s.card.id}`}>💳 {s.card.name}{s.card.issuer && <span className="muted small"> · {s.card.issuer}</span>}</h2>
+          <h2 id={`card-${s.card.id}`}>
+            <button
+              type="button"
+              className="icon-btn"
+              style={{ cursor: props.dragging ? 'grabbing' : 'grab', touchAction: 'none', marginRight: 6 }}
+              aria-label={`จัดลำดับบัตร ${s.card.name}: ลากขึ้นลง หรือกด Alt + ลูกศรขึ้น/ลง`}
+              title="ลากเพื่อเรียงลำดับบัตร"
+              onPointerDown={props.onGripPointerDown}
+              onKeyDown={(e) => { if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { e.preventDefault(); props.onMoveCard(e.key === 'ArrowUp' ? -1 : 1) } }}
+            >⠿</button>
+            💳 {s.card.name}{s.card.issuer && <span className="muted small"> · {s.card.issuer}</span>}</h2>
           <p className="muted small">
             ตัดรอบ {formatThaiDate(s.statementDate)} · ครบกำหนดชำระ <strong>{formatThaiDate(s.dueDate)}</strong>
             {due && <> ({due})</>}

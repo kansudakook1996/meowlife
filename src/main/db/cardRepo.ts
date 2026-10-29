@@ -416,3 +416,16 @@ export function refreshCardBills(db: Db, today: string): number {
   }
   return changed
 }
+
+/** Save the order the user wants their cards in (first = shown first). Only rows whose position changed are touched. */
+export function reorderCards(db: Db, ids: string[]): number {
+  const update = db.prepare('UPDATE credit_cards SET sort_order = ?, updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL AND sort_order != ?')
+  const now = nowIso()
+  return inTransaction(db, () => {
+    let changed = 0
+    ids.forEach((id, index) => {
+      changed += Number(update.run(index, now, id, index).changes)
+    })
+    return changed
+  })
+}

@@ -91,6 +91,7 @@ const bridge: MeowBridge = {
     ledger: { reorder: (ids) => ipcRenderer.invoke(ch('ledger', 'reorder'), ids) },
     cards: {
       list: () => ipcRenderer.invoke(ch('cards', 'list')),
+      reorder: (ids) => ipcRenderer.invoke(ch('cards', 'reorder'), ids),
       create: (input) => ipcRenderer.invoke(ch('cards', 'create'), input),
       update: (id, input) => ipcRenderer.invoke(ch('cards', 'update'), { id, input }),
       remove: (id) => ipcRenderer.invoke(ch('cards', 'remove'), id),

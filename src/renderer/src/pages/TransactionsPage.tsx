@@ -7,6 +7,7 @@ import { EmptyState } from '../components/EmptyState'
 import { MonthPicker } from '../components/MonthPicker'
 import { TransactionRow } from '../components/TransactionRow'
 import { errorMessage } from '../lib/api'
+import { autoScrollNear } from '../lib/dragScroll'
 import { meow, unwrap } from '../lib/api'
 import { usePortal } from '../lib/portal'
 import { useLoad } from '../lib/useLoad'
@@ -111,7 +112,9 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
     setDragId(id)
     setLiveIds(start)
     const onMove = (ev: PointerEvent): void => {
-      const row = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('li[data-txid]')
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY)
+      autoScrollNear(hit, ev.clientY)
+      const row = hit?.closest<HTMLElement>('li[data-txid]')
       const over = row?.dataset['txid']
       if (!row || !over || over === id) return
       const from = current.indexOf(id)
@@ -260,15 +263,15 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
       {data && sortMode === 'priority' && data.length > 0 && (
         <>
           <p className="muted small">
-            {canReorder ? 'จัดลำดับความสำคัญ: คลิกที่รายการแล้วลากขึ้น-ลง หรือกด ▲ ▼ (รายการบนสุด = สำคัญที่สุด) รายการใหม่จะไปอยู่ท้ายสุด' : 'ล้างตัวกรองก่อน ถึงจะจัดลำดับความสำคัญได้'}
+            {canReorder ? 'จัดลำดับความสำคัญ: คลิกที่รายการแล้วลากขึ้น-ลง (รายการบนสุด = สำคัญที่สุด) · ใช้คีย์บอร์ด: เลือกรายการแล้วกด Alt + ↑ / ↓ รายการใหม่จะไปอยู่ท้ายสุด' : 'ล้างตัวกรองก่อน ถึงจะจัดลำดับความสำคัญได้'}
           </p>
           <ul className="tx-list">
-            {ordered.map((t, i) => (
+            {ordered.map((t) => (
               <TransactionRow
                 key={t.id}
                 item={t}
                 showDate
-                order={canReorder ? { rank: i + 1, canUp: i > 0, canDown: i < ordered.length - 1, onUp: () => moveBy(t.id, -1), onDown: () => moveBy(t.id, 1), dragging: dragId === t.id, onPointerDown: (e) => startDrag(e, t.id) } : undefined}
+                order={canReorder ? { onMove: (d) => moveBy(t.id, d), dragging: dragId === t.id, onPointerDown: (e) => startDrag(e, t.id) } : undefined}
               />
             ))}
           </ul>
