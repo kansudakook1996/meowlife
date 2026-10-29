@@ -147,10 +147,10 @@ describe('notes', () => {
 
 describe('settings', () => {
   it('has defaults, saves changes, and ignores damaged stored values', () => {
-    expect(getSettings(db)).toMatchObject({ theme: 'orange', dueSoonDays: 3, remindersEnabled: true, reminderHour: 9 })
-    expect(setSettings(db, { theme: 'blue', dueSoonDays: 5 })).toMatchObject({ theme: 'blue', dueSoonDays: 5 })
+    expect(getSettings(db)).toMatchObject({ theme: 'fresh', dueSoonDays: 3, remindersEnabled: true, reminderHour: 9 })
+    expect(setSettings(db, { theme: 'warm', dueSoonDays: 5 })).toMatchObject({ theme: 'warm', dueSoonDays: 5 })
     db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('dueSoonDays', '999'), ('theme', '{broken')").run()
-    expect(getSettings(db)).toMatchObject({ theme: 'orange', dueSoonDays: 3 })
+    expect(getSettings(db)).toMatchObject({ theme: 'fresh', dueSoonDays: 3 })
   })
 })
 

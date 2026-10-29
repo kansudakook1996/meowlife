@@ -45,7 +45,7 @@ export function InsightsPage(): React.JSX.Element {
 
       {data && a && (
         <>
-          <section className="greeting" aria-label="ข้อสังเกตจากโมจิกับส้มโอ">
+          <section className="greeting" aria-label="ข้อสังเกตจากเจ๊หมีกับอาจารย์ส้ม">
             <CatMascot mood="happy" size={96} />
             <ul style={{ margin: 0, paddingLeft: 18 }}>
               {lines.length === 0 ? <li>เดือนนี้ยังมีข้อมูลไม่มาก ลองจดรายการหรือเขียนบันทึกสักหน่อยนะ</li> : lines.map((l) => <li key={l}>{l}</li>)}

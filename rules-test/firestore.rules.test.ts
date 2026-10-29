@@ -5,6 +5,7 @@ import { collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, where } fro
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { openMemoryDatabase } from '../src/main/db/connection'
 import { DEFAULT_CATEGORIES } from '../src/main/db/defaults'
+import { createCard, createCharge, createPlan } from '../src/main/db/cardRepo'
 import { createRecurring, ensureRecurringForMonth } from '../src/main/db/recurringRepo'
 import { getDirty } from '../src/main/db/syncRepo'
 import { createGoal, createHabit, createNote, createTask, saveJournal, setHabitCheck } from '../src/main/db/portalRepo'
@@ -59,6 +60,9 @@ function appDocs(): Array<{ table: string; doc: SyncDoc }> {
   const habit = createHabit(db, { name: 'ดื่มน้ำ', icon: '💧' })
   setHabitCheck(db, habit.id, '2026-10-28', true)
   createNote(db, { title: 'โน้ต', body: 'เนื้อหา', isPinned: true })
+  const card = createCard(db, { name: 'KTC', issuer: 'กรุงไทย', statementDay: 25, dueDay: 10, limitSatang: 5000000, isActive: true })
+  createCharge(db, { cardId: card.id, chargeDate: '2026-10-05', title: 'ข้าว', category: 'อาหาร', amountSatang: 25000, note: '' })
+  createPlan(db, { cardId: card.id, title: 'ผ่อนโทรศัพท์', totalMonths: 10, monthlySatang: 150000, startMonth: '2026-08', note: '' })
   // Mark everything dirty so seeded categories / payment methods are included too.
   for (const t of ['categories', 'payment_methods']) db.exec(`UPDATE ${t} SET dirty = 1`)
   return getDirty(db, 500)
@@ -135,6 +139,26 @@ describe('other users and strangers', () => {
     await assertFails(getDoc(doc(alice, 'users', ALICE)))
     await assertFails(setDoc(doc(alice, 'users', ALICE), { a: 1 }))
     await assertFails(setDoc(doc(alice, 'users', ALICE, 'secrets', 'x'), validTx('x')))
+  })
+})
+
+describe('Credit card documents', () => {
+  const put = (table: string, d: Record<string, unknown>): Promise<void> => setDoc(doc(as(ALICE), 'users', ALICE, table, String(d['id'])), d)
+  const docOf = (table: string): Record<string, unknown> => appDocs().find((x) => x.table === table)!.doc
+
+  it('accepts what the app writes and rejects bad values', async () => {
+    await assertSucceeds(put('credit_cards', docOf('credit_cards')))
+    await assertSucceeds(put('card_charges', docOf('card_charges')))
+    await assertSucceeds(put('card_plans', docOf('card_plans')))
+    await assertFails(put('credit_cards', { ...docOf('credit_cards'), statementDay: 32 }))
+    await assertFails(put('card_charges', { ...docOf('card_charges'), amountSatang: 0 }))
+    await assertFails(put('card_plans', { ...docOf('card_plans'), totalMonths: 1 }))
+    await assertFails(put('card_plans', { ...docOf('card_plans'), extra: 'x' }))
+  })
+
+  it('keeps card data private', async () => {
+    await assertSucceeds(put('credit_cards', docOf('credit_cards')))
+    await assertFails(getDoc(doc(as(BOB), 'users', ALICE, 'credit_cards', String(docOf('credit_cards')['id']))))
   })
 })
 

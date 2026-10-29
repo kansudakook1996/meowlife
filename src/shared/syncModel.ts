@@ -13,7 +13,10 @@ export const SYNC_TABLES = [
   'goals',
   'habits',
   'habit_checks',
-  'notes'
+  'notes',
+  'credit_cards',
+  'card_charges',
+  'card_plans'
 ] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
@@ -65,7 +68,10 @@ export const TABLE_COLUMNS: Record<SyncTable, readonly string[]> = {
   goals: [...COMMON, 'title', 'kind', 'target_satang', 'saved_satang', 'progress', 'target_date', 'note', 'is_done', 'done_date'],
   habits: [...COMMON, 'name', 'icon', 'sort_order'],
   habit_checks: [...COMMON, 'habit_id', 'check_date'],
-  notes: [...COMMON, 'title', 'body', 'is_pinned']
+  notes: [...COMMON, 'title', 'body', 'is_pinned'],
+  credit_cards: [...COMMON, 'name', 'issuer', 'statement_day', 'due_day', 'limit_satang', 'is_active', 'sort_order'],
+  card_charges: [...COMMON, 'card_id', 'charge_date', 'title', 'category', 'amount_satang', 'note', 'bill_month'],
+  card_plans: [...COMMON, 'card_id', 'title', 'total_months', 'monthly_satang', 'start_month', 'note']
 }
 
 const toCamel = (s: string): string => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
@@ -182,6 +188,35 @@ export const DOC_SCHEMAS: Record<SyncTable, z.ZodType<SyncDoc>> = {
     title: z.string().min(1).max(80),
     body: z.string().max(5000),
     isPinned: Int01
+  }) as unknown as z.ZodType<SyncDoc>,
+  credit_cards: z.strictObject({
+    ...base,
+    name: z.string().min(1).max(40),
+    issuer: z.string().max(40),
+    statementDay: z.number().int().min(1).max(31),
+    dueDay: z.number().int().min(1).max(31),
+    limitSatang: Amount.nullable(),
+    isActive: Int01,
+    sortOrder: z.number().int().min(0).max(100000)
+  }) as unknown as z.ZodType<SyncDoc>,
+  card_charges: z.strictObject({
+    ...base,
+    cardId: IdSchema,
+    chargeDate: IsoDateSchema,
+    title: z.string().min(1).max(80),
+    category: z.string().max(40),
+    amountSatang: Amount,
+    note: z.string().max(500),
+    billMonth: MonthSchema
+  }) as unknown as z.ZodType<SyncDoc>,
+  card_plans: z.strictObject({
+    ...base,
+    cardId: IdSchema,
+    title: z.string().min(1).max(80),
+    totalMonths: z.number().int().min(2).max(120),
+    monthlySatang: Amount,
+    startMonth: MonthSchema,
+    note: z.string().max(500)
   }) as unknown as z.ZodType<SyncDoc>
 }
 

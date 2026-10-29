@@ -59,6 +59,13 @@ export function addMonths(month: string, delta: number): string {
   return `${Math.floor(index / 12)}-${pad2((index % 12) + 1)}`
 }
 
+/** Whole months from `from` to `to` ("2026-10" → "2027-01" = 3; negative when `to` is earlier). */
+export function monthsBetween(from: string, to: string): number {
+  const [fy, fm] = parseMonth(from)
+  const [ty, tm] = parseMonth(to)
+  return (ty - fy) * 12 + (tm - fm)
+}
+
 export function firstDayOfMonth(month: string): string {
   parseMonth(month)
   return `${month}-01`

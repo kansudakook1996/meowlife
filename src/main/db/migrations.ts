@@ -193,6 +193,52 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    version: 4,
+    up(db) {
+      // Credit cards: the cards, what was charged on them, and instalment plans (all synced).
+      db.exec(`
+        CREATE TABLE credit_cards (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          issuer TEXT NOT NULL DEFAULT '',
+          statement_day INTEGER NOT NULL CHECK (statement_day BETWEEN 1 AND 31),
+          due_day INTEGER NOT NULL CHECK (due_day BETWEEN 1 AND 31),
+          limit_satang INTEGER CHECK (limit_satang IS NULL OR limit_satang > 0),
+          is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+
+        CREATE TABLE card_charges (
+          id TEXT PRIMARY KEY,
+          card_id TEXT NOT NULL REFERENCES credit_cards(id),
+          charge_date TEXT NOT NULL,
+          title TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT '',
+          amount_satang INTEGER NOT NULL CHECK (amount_satang > 0),
+          note TEXT NOT NULL DEFAULT '',
+          bill_month TEXT NOT NULL,
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+        CREATE INDEX idx_card_charges_bill ON card_charges (card_id, bill_month) WHERE deleted_at IS NULL;
+
+        CREATE TABLE card_plans (
+          id TEXT PRIMARY KEY,
+          card_id TEXT NOT NULL REFERENCES credit_cards(id),
+          title TEXT NOT NULL,
+          total_months INTEGER NOT NULL CHECK (total_months BETWEEN 2 AND 120),
+          monthly_satang INTEGER NOT NULL CHECK (monthly_satang > 0),
+          start_month TEXT NOT NULL,
+          note TEXT NOT NULL DEFAULT '',
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+      `)
+    }
   }
 ]
 

@@ -30,12 +30,12 @@ function groupByDate(items: TransactionView[]): Array<[string, TransactionView[]
   return [...groups.entries()]
 }
 
-export function TransactionsPage({ searchFocusSignal }: { searchFocusSignal: number }): React.JSX.Element {
+export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { searchFocusSignal: number; initialSearch?: string }): React.JSX.Element {
   const { month, setMonth, dataVersion, openEditor, categories } = usePortal()
   const [kind, setKind] = useState<KindFilter>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [categoryId, setCategoryId] = useState('')
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(initialSearch)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {

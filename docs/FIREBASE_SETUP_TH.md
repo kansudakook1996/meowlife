@@ -103,6 +103,10 @@ Firestore Database → Rules → **Publish** อีกครั้ง (ไม่
 2. ถ้า Publish แล้วซิงก์ขึ้น `permission-denied` ให้บอกผมพร้อมข้อความที่แอปแสดง (ห้าม Publish กลับเป็น `if true`)
 3. ทดสอบกฎด้วยตัวเองบนเครื่องได้: ติดตั้ง Java 21 (`winget install Microsoft.OpenJDK.21`) แล้วรัน `npm run test:rules`
 
+## ขั้นที่ 5 (ครั้งที่ 5) — Publish Rules สำหรับ 0.4.0 (บัตรเครดิต) ⚠️
+0.4.0 เพิ่ม 3 คอลเลกชัน (credit_cards, card_charges, card_plans) คัดลอก `firestore.rules` ทั้งไฟล์ไป Publish ใหม่ (วิธีเดียวกับครั้งก่อน)
+ถ้ายังไม่ Publish ข้อมูลบัตรจะซิงก์ไม่ได้ (แถบสถานะขึ้น permission-denied) แต่ข้อมูลอื่นซิงก์ปกติ และข้อมูลบัตรอยู่ในเครื่องครบ
+
 ## ขั้นที่ 5 (ครั้งที่ 4) — Publish Rules สำหรับ 0.3.0 (Personal Portal) ⚠️
 0.3.0 เพิ่ม 6 คอลเลกชัน (tasks, journal_entries, goals, habits, habit_checks, notes) ต้องคัดลอก `firestore.rules` ทั้งไฟล์ไป Publish ใหม่
 - ถ้ายังไม่ Publish: รายการรับ-จ่ายยังซิงก์ได้ปกติ แต่แถบสถานะจะขึ้น "ซิงก์ไม่สำเร็จ" พร้อมข้อความ permission-denied (ตารางที่ถูกปฏิเสธไม่ขวางตารางอื่น)

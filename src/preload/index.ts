@@ -88,7 +88,27 @@ const bridge: MeowBridge = {
       remove: (id) => ipcRenderer.invoke(ch('notes', 'remove'), id),
       restore: (id) => ipcRenderer.invoke(ch('notes', 'restore'), id)
     },
-    calendar: { range: (from, to) => ipcRenderer.invoke(ch('calendar', 'range'), { from, to }) },
+    cards: {
+      list: () => ipcRenderer.invoke(ch('cards', 'list')),
+      create: (input) => ipcRenderer.invoke(ch('cards', 'create'), input),
+      update: (id, input) => ipcRenderer.invoke(ch('cards', 'update'), { id, input }),
+      remove: (id) => ipcRenderer.invoke(ch('cards', 'remove'), id),
+      restore: (id) => ipcRenderer.invoke(ch('cards', 'restore'), id),
+      overview: (month) => ipcRenderer.invoke(ch('cards', 'overview'), month),
+      charges: {
+        create: (input) => ipcRenderer.invoke(ch('cards', 'charges.create'), input),
+        update: (id, input) => ipcRenderer.invoke(ch('cards', 'charges.update'), { id, input }),
+        remove: (id) => ipcRenderer.invoke(ch('cards', 'charges.remove'), id),
+        restore: (id) => ipcRenderer.invoke(ch('cards', 'charges.restore'), id)
+      },
+      plans: {
+        create: (input) => ipcRenderer.invoke(ch('cards', 'plans.create'), input),
+        update: (id, input) => ipcRenderer.invoke(ch('cards', 'plans.update'), { id, input }),
+        remove: (id) => ipcRenderer.invoke(ch('cards', 'plans.remove'), id),
+        restore: (id) => ipcRenderer.invoke(ch('cards', 'plans.restore'), id)
+      },
+      createBill: (cardId, month) => ipcRenderer.invoke(ch('cards', 'createBill'), { cardId, month })
+    },    calendar: { range: (from, to) => ipcRenderer.invoke(ch('calendar', 'range'), { from, to }) },
     reminders: { due: () => ipcRenderer.invoke(ch('reminders', 'due')) },
     insights: { activity: (month) => ipcRenderer.invoke(ch('insights', 'activity'), month) },
     companion: {

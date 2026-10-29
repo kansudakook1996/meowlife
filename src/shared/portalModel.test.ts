@@ -129,7 +129,8 @@ describe('goals, tasks and settings validation', () => {
     expect(TaskInputSchema.safeParse({ title: '', note: '', dueDate: null, repeat: 'none' }).success).toBe(false)
     expect(TaskInputSchema.safeParse({ title: 'x', note: '', dueDate: '2026-02-30', repeat: 'none' }).success).toBe(false)
     expect(TaskInputSchema.safeParse({ title: 'x', note: '', dueDate: null, repeat: 'yearly' }).success).toBe(false)
-    expect(SettingsPatchSchema.safeParse({ theme: 'blue', dueSoonDays: 5 }).success).toBe(true)
+    expect(SettingsPatchSchema.safeParse({ theme: 'warm', dueSoonDays: 5 }).success).toBe(true)
+    expect(SettingsPatchSchema.safeParse({ theme: 'blue' }).success).toBe(false) // old theme names are no longer valid
     expect(SettingsPatchSchema.safeParse({ dueSoonDays: 99 }).success).toBe(false)
     expect(SettingsPatchSchema.safeParse({ hack: true }).success).toBe(false)
   })

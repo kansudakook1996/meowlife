@@ -23,7 +23,7 @@ export function JournalPage(): React.JSX.Element {
       <header className="page-header">
         <div className="page-header-text">
           <h1>บันทึกประจำวัน</h1>
-          <p className="muted">เล่าเรื่องวันนี้และความรู้สึกให้โมจิกับส้มโอฟัง (หนึ่งหน้าต่อวัน)</p>
+          <p className="muted">เล่าเรื่องวันนี้และความรู้สึกให้เจ๊หมีกับอาจารย์ส้มฟัง (หนึ่งหน้าต่อวัน)</p>
         </div>
         <div className="field" style={{ minWidth: 180 }}>
           <label htmlFor="journal-date">วันที่</label>

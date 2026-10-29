@@ -3,6 +3,8 @@ import { formatSatang } from '@shared/money'
 import type { MonthSummary, TransactionView } from '@shared/types'
 import { CatMascot, type CatMood } from '../components/CatMascot'
 import { EmptyState } from '../components/EmptyState'
+import { Icon } from '../components/Icon'
+import { CardsDashboardCard } from '../components/CardsDashboardCard'
 import { RemindersCard } from '../components/RemindersCard'
 import { MonthPicker } from '../components/MonthPicker'
 import { TransactionRow } from '../components/TransactionRow'
@@ -18,9 +20,9 @@ interface DashboardData {
 function catMessage(s: MonthSummary): { mood: CatMood; text: string } {
   if (s.itemCount === 0) return { mood: 'sleepy', text: 'เดือนนี้ยังว่างอยู่เลย เริ่มจดรายการแรกกันไหม?' }
   if (s.overdueCount > 0) return { mood: 'worried', text: `มีบิลเลยกำหนด ${s.overdueCount} รายการ ค่อย ๆ จัดการทีละอย่างนะ` }
-  if (s.dueSoonCount > 0) return { mood: 'happy', text: `อีกไม่กี่วันมีบิลครบกำหนด ${s.dueSoonCount} รายการ โมจิกับส้มโอช่วยเตือนไว้ก่อนนะ` }
+  if (s.dueSoonCount > 0) return { mood: 'happy', text: `อีกไม่กี่วันมีบิลครบกำหนด ${s.dueSoonCount} รายการ เจ๊หมีกับอาจารย์ส้มช่วยเตือนไว้ก่อนนะ` }
   if (s.balance < 0) return { mood: 'happy', text: 'เดือนนี้ใช้มากกว่ารายรับนิดหน่อย ค่อย ๆ ปรับกันนะ' }
-  return { mood: 'cheer', text: 'เก่งมาก! จดรายการต่อเนื่องแบบนี้ โมจิกับส้มโอภูมิใจในตัวคุณ' }
+  return { mood: 'cheer', text: 'เก่งมาก! จดรายการต่อเนื่องแบบนี้ เจ๊หมีกับอาจารย์ส้มภูมิใจในตัวคุณ' }
 }
 
 export function DashboardPage(): React.JSX.Element {
@@ -47,6 +49,15 @@ export function DashboardPage(): React.JSX.Element {
         <MonthPicker month={month} onChange={setMonth} />
       </header>
 
+      <section className="quick-actions" aria-label="ทางลัด">
+        <button type="button" className="btn btn-primary" onClick={() => openEditor({ mode: 'new', kind: 'expense' })}>
+          <Icon name="plus" /> จดรายจ่าย
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={() => openEditor({ mode: 'new', kind: 'income' })}>
+          <Icon name="plus" /> จดรายรับ
+        </button>
+      </section>
+
       {error && (
         <div className="alert" role="alert">
           {error}
@@ -56,12 +67,13 @@ export function DashboardPage(): React.JSX.Element {
 
       {s && cat && (
         <>
-          <section className="greeting" aria-label="ข้อความจากโมจิกับส้มโอ">
+          <section className="greeting" aria-label="ข้อความจากเจ๊หมีกับอาจารย์ส้ม">
             <CatMascot mood={cat.mood} size={96} />
             <p>{cat.text}</p>
           </section>
 
           <RemindersCard />
+          <CardsDashboardCard />
 
           <section className="summary-grid" aria-label="สรุปยอด" aria-busy={loading}>
             <div className="summary-card summary-income">

@@ -8,9 +8,8 @@ import { useLoad } from '../lib/useLoad'
 import { describeUpdate, useUpdateStatus } from '../lib/useUpdateStatus'
 
 const THEMES: Array<{ id: ThemeName; label: string; color: string }> = [
-  { id: 'orange', label: 'ส้มเหลือง (ตามแมว)', color: '#b4530f' },
-  { id: 'pink', label: 'ชมพูพาสเทล', color: '#b5365f' },
-  { id: 'blue', label: 'ฟ้าพาสเทล', color: '#24609e' }
+  { id: 'fresh', label: 'สดใส (ชมพู-ฟ้า-กรมท่า)', color: '#f188a7' },
+  { id: 'warm', label: 'อบอุ่น (ส้ม-ครีม)', color: '#f7a55a' }
 ]
 
 export function SettingsPage(): React.JSX.Element {

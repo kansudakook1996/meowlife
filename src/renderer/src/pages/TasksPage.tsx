@@ -20,11 +20,11 @@ function dueLabel(t: Task, today: string): { icon: string; text: string; tone: '
   return { icon: '○', text: formatThaiDate(t.dueDate), tone: 'unpaid' }
 }
 
-export function TasksPage(): React.JSX.Element {
+export function TasksPage({ startAdding = false }: { startAdding?: boolean }): React.JSX.Element {
   const { dataVersion, refresh, toast } = usePortal()
   const today = todayIso()
   const { data, error } = useLoad(`tasks:${dataVersion}`, () => unwrap(meow().portal.tasks.list()))
-  const [editing, setEditing] = useState<Task | 'new' | null>(null)
+  const [editing, setEditing] = useState<Task | 'new' | null>(startAdding ? 'new' : null)
   const [showDone, setShowDone] = useState(false)
   const del = useDeleteWithUndo(
     (id) => unwrap(meow().portal.tasks.remove(id)),

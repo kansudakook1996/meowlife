@@ -12,6 +12,8 @@ import {
 } from '@shared/portalModel'
 import { IdSchema, IsoDateSchema, MonthSchema } from '@shared/schemas'
 import { MAX_SATANG } from '@shared/money'
+import { CardInputSchema, ChargeInputSchema, PlanInputSchema } from '@shared/cards'
+import { cardsOverview, createCard, createCardBill, createCharge, createPlan, listCards, updateCard, updateCharge, updatePlan } from '../db/cardRepo'
 import type { Db } from '../db/connection'
 import {
   activityInsights,
@@ -96,6 +98,21 @@ export function registerPortalHandlers(db: Db, onSettings: (s: AppSettings) => v
   handle(c('notes', 'update'), Update(NoteInputSchema), ({ id, input }) => updateNote(db, id, input))
   crud('notes', 'notes')
 
+  handle(c('cards', 'list'), NoInput, () => listCards(db))
+  handle(c('cards', 'create'), CardInputSchema, (i) => createCard(db, i))
+  handle(c('cards', 'update'), Update(CardInputSchema), ({ id, input }) => updateCard(db, id, input))
+  handle(c('cards', 'remove'), IdSchema, (id) => removeRow(db, 'credit_cards', id))
+  handle(c('cards', 'restore'), IdSchema, (id) => restoreRow(db, 'credit_cards', id))
+  handle(c('cards', 'overview'), MonthSchema, (month) => cardsOverview(db, month, today()))
+  handle(c('cards', 'charges.create'), ChargeInputSchema, (i) => createCharge(db, i))
+  handle(c('cards', 'charges.update'), Update(ChargeInputSchema), ({ id, input }) => updateCharge(db, id, input))
+  handle(c('cards', 'charges.remove'), IdSchema, (id) => removeRow(db, 'card_charges', id))
+  handle(c('cards', 'charges.restore'), IdSchema, (id) => restoreRow(db, 'card_charges', id))
+  handle(c('cards', 'plans.create'), PlanInputSchema, (i) => createPlan(db, i))
+  handle(c('cards', 'plans.update'), Update(PlanInputSchema), ({ id, input }) => updatePlan(db, id, input))
+  handle(c('cards', 'plans.remove'), IdSchema, (id) => removeRow(db, 'card_plans', id))
+  handle(c('cards', 'plans.restore'), IdSchema, (id) => restoreRow(db, 'card_plans', id))
+  handle(c('cards', 'createBill'), z.strictObject({ cardId: IdSchema, month: MonthSchema }), ({ cardId, month }) => createCardBill(db, cardId, month, today()))
   handle(c('calendar', 'range'), z.strictObject({ from: IsoDateSchema, to: IsoDateSchema }), ({ from, to }) =>
     calendarEvents(db, from, to, today())
   )

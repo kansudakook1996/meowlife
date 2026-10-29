@@ -20,7 +20,7 @@ export function CompanionPage(): React.JSX.Element {
       <header className="page-header">
         <div className="page-header-text">
           <h1>แมวคู่ใจ</h1>
-          <p className="muted">โมจิ (ขาว) กับ ส้มโอ (ส้ม) อยู่เป็นเพื่อนคุณ ไม่มีใครกดดันใคร</p>
+          <p className="muted">เจ๊หมี (ขาว) กับ อาจารย์ส้ม (ส้ม) อยู่เป็นเพื่อนคุณ ไม่มีใครกดดันใคร</p>
         </div>
       </header>
 
@@ -28,7 +28,7 @@ export function CompanionPage(): React.JSX.Element {
       {data && (
         <>
           <section className="greeting" aria-label="คำให้กำลังใจวันนี้">
-            <CatMascot mood={data.message.mood} size={150} label="โมจิกับส้มโอ" />
+            <CatMascot mood={data.message.mood} size={150} label="เจ๊หมีกับอาจารย์ส้ม" />
             <div>
               <p style={{ fontSize: '1.15rem' }}>{data.message.text}</p>
               <p className="muted small">กำลังใจประจำวันนี้</p>

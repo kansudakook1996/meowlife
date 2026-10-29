@@ -14,7 +14,14 @@ export function Modal({ open, title, onClose, children }: Props): React.JSX.Elem
   useEffect(() => {
     const dialog = ref.current
     if (!dialog) return
-    if (open && !dialog.open) dialog.showModal()
+    if (open && !dialog.open) {
+      dialog.showModal()
+      // React's autoFocus runs before the dialog is shown and is lost; focus the first field ourselves
+      // so you can start typing right away (otherwise focus lands on the ✕ button).
+      const field = dialog.querySelector<HTMLElement>('input:not([type="hidden"]):not([type="checkbox"]), textarea, select')
+      const fallback = dialog.querySelector<HTMLElement>('.form-actions button, .modal-body > p ~ div button')
+      ;(field ?? fallback)?.focus()
+    }
     if (!open && dialog.open) dialog.close()
   }, [open])
 

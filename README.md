@@ -1,7 +1,7 @@
 # 🐱 MeowLife
 
 Personal Portal สำหรับจัดการชีวิตส่วนตัวบน Windows — เริ่มจากบัญชีรายรับรายจ่ายที่ใช้ง่าย ทำงานออฟไลน์
-มีแมวคู่ใจ "โมจิ" (ขาว) กับ "ส้มโอ" (ส้ม) คอยให้กำลังใจ
+มีแมวคู่ใจ "เจ๊หมี" (ขาว) กับ "อาจารย์ส้ม" (ส้ม) คอยให้กำลังใจ
 
 > สถานะ: **v0.1.0 (กำลังพัฒนา, ยังไม่ใช่ Production-ready)** — ดู [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md)
 
@@ -37,4 +37,4 @@ npm run dev
 ## ลิขสิทธิ์ส่วนประกอบ
 - ฟอนต์ IBM Plex Sans Thai — SIL Open Font License 1.1 (IBM)
 - ไอคอนแอป (`build/icon.png`) — ภาพของเจ้าของโปรเจกต์
-- มาสคอต "โมจิ" กับ "ส้มโอ" — SVG ที่วาดสำหรับโปรเจกต์นี้ (`src/renderer/src/components/CatMascot.tsx`)
+- มาสคอต "เจ๊หมี" กับ "อาจารย์ส้ม" — SVG ที่วาดสำหรับโปรเจกต์นี้ (`src/renderer/src/components/CatMascot.tsx`)

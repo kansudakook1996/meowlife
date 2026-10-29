@@ -15,6 +15,8 @@ async function launch(): Promise<{ app: ElectronApplication; page: Page }> {
     env: { ...process.env, MEOWLIFE_USER_DATA: userData, ELECTRON_RENDERER_URL: '' }
   })
   const page = await app.firstWindow()
+  // The app reopens on the page you used last, so wait for the menu and go to the dashboard.
+  await page.getByRole('navigation').getByRole('button', { name: 'ภาพรวม', exact: true }).click()
   await page.getByRole('heading', { name: 'ภาพรวม' }).waitFor()
   return { app, page }
 }

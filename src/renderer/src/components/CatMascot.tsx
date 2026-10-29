@@ -1,5 +1,5 @@
 /**
- * "โมจิ" (white) and "ส้มโอ" (orange tabby) — MeowLife's mascots, drawn as inline SVG (works offline).
+ * "เจ๊หมี" (white) and "อาจารย์ส้ม" (orange tabby) — MeowLife's mascots, drawn as inline SVG (works offline).
  * Style follows the owner's app icon: flat shapes, no outlines, big eyes with a yellow ring, ":3" mouths.
  */
 export type CatMood = 'happy' | 'sleepy' | 'cheer' | 'worried'

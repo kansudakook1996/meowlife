@@ -116,6 +116,31 @@ service cloud.firestore {
         && str(d.title, 80) && strOrEmpty(d.body, 5000) && whole(d.isPinned, 0, 1);
     }
 
+    // ---- Credit cards ----
+    function validCard(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'name', 'issuer', 'statementDay', 'dueDay', 'limitSatang', 'isActive', 'sortOrder'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.name, 40) && strOrEmpty(d.issuer, 40) && whole(d.statementDay, 1, 31) && whole(d.dueDay, 1, 31)
+        && (d.limitSatang == null || whole(d.limitSatang, 1, 99999999999)) && whole(d.isActive, 0, 1) && whole(d.sortOrder, 0, 100000);
+    }
+
+    function validCardCharge(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'cardId', 'chargeDate', 'title', 'category', 'amountSatang', 'note', 'billMonth'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.cardId, 64) && str(d.chargeDate, 10) && str(d.title, 80) && strOrEmpty(d.category, 40)
+        && whole(d.amountSatang, 1, 99999999999) && strOrEmpty(d.note, 500) && str(d.billMonth, 7);
+    }
+
+    function validCardPlan(d, docId) {
+      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'cardId', 'title', 'totalMonths', 'monthlySatang', 'startMonth', 'note'];
+      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
+        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
+        && str(d.cardId, 64) && str(d.title, 80) && whole(d.totalMonths, 2, 120)
+        && whole(d.monthlySatang, 1, 99999999999) && str(d.startMonth, 7) && strOrEmpty(d.note, 500);
+    }
+
     // Written by the in-app connection test button.
     function validMeta(d, docId) {
       let keys = ['id', 'updatedAt', 'kind'];
@@ -162,6 +187,18 @@ service cloud.firestore {
     match /users/{uid}/notes/{docId} {
       allow read, delete: if isOwner(uid);
       allow create, update: if isOwner(uid) && validNote(request.resource.data, docId);
+    }
+    match /users/{uid}/credit_cards/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validCard(request.resource.data, docId);
+    }
+    match /users/{uid}/card_charges/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validCardCharge(request.resource.data, docId);
+    }
+    match /users/{uid}/card_plans/{docId} {
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && validCardPlan(request.resource.data, docId);
     }
     match /users/{uid}/meta/{docId} {
       allow read, delete: if isOwner(uid);

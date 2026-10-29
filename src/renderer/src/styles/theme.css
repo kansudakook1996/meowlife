@@ -1,94 +1,95 @@
 /*
  * Design tokens — see docs/UX_GUIDELINES.md. Components use only these variables.
- * Palette inspired by the owner's app icon (white + orange cats on warm yellow, cream, dark brown).
+ *
+ * "สดใส" palette chosen by the owner (v0.4.0):
+ *   pink #F188A7 · sky #84CFEE · navy #273564 (lines + shadows + text) · white · cat-gray #BDBDBB
+ *   blue #406AB2 · blue-gray #788FB8 · slate #5E749A (muted text)
+ * Playful but professional: flat fills, 2px navy outlines and hard navy "sticker" shadows.
  */
 :root {
-  /* brand */
-  --yellow-100: #fff1c2;
-  --yellow-300: #ffd54f;
+  --pink: #f188a7;
+  --sky: #84cfee;
+  --navy: #273564;
+  --white: #ffffff;
+  --cat-gray: #bdbdbb;
+  --blue: #406ab2;
+  --blue-gray: #788fb8;
+  --slate: #5e749a;
+
+  /* semantic roles (themes override these) */
+  --ink: var(--navy);
+  --primary: var(--pink);
+  --primary-hover: #ee7a9b;
+  --primary-ink: var(--navy); /* text on top of --primary (white on pink would be too faint) */
+  --accent-2: var(--sky);
+  --link: var(--blue);
+  --bg: #f2f9fd;
+  --surface: #ffffff;
+  --text: var(--navy);
+  --text-muted: var(--slate);
+  --line: var(--navy);
+  --border: #c9d5e8; /* soft dividers inside cards */
+  --shadow: 3px 3px 0 var(--navy);
+  --shadow-sm: 2px 2px 0 var(--navy);
+
+  /* legacy names still used by components, mapped onto the palette */
+  --orange-50: #eaf6fc;
+  --orange-100: #d3ecf8;
+  --orange-300: var(--sky);
+  --orange-500: var(--pink);
+  --orange-700: var(--blue);
+  --orange-800: var(--navy);
+  --cream: var(--bg);
+  --yellow-100: #fff3c4;
+  --yellow-300: #ffd866;
   --yellow-600: #7a5300;
-  --orange-50: #fff4e8;
-  --orange-100: #ffe3c7;
-  --orange-300: #f7a55a;
-  --orange-500: #e98a2e; /* the orange cat */
-  --orange-700: #b4530f; /* white text on it: 5.0:1 */
-  --orange-800: #8f400a;
-  --cream: #fff8ec;
-  --brown: #4a2c21;
-
-  --primary: var(--orange-700);
-  --primary-hover: var(--orange-800);
-
-  /* meaning colors (status, income/expense) */
-  --pink-100: #ffd9e4;
-  --pink-300: #f7a6bd;
-  --pink-700: #a02f5c;
-  --blue-100: #d6ebff;
-  --blue-300: #8cc4fb;
-  --blue-600: #24609e;
+  --pink-100: #fbd9e3;
+  --pink-300: var(--pink);
+  --pink-700: #b23a5f; /* expense amounts as text: a deeper pink so it stays readable on white */
+  --blue-100: #dcf1fa;
+  --blue-300: var(--sky);
+  --blue-600: var(--blue);
   --green-100: #d6f2df;
   --green-600: #1d6b3d;
   --red-100: #ffdad4;
   --red-600: #a8231b;
-  --gray-100: #f1e9e0;
-  --gray-300: #dccfbf;
+  --gray-100: #eeeeed;
+  --gray-300: var(--cat-gray);
 
-  --bg: var(--cream);
-  --side-top: var(--yellow-300);
-  --side-mid: var(--yellow-100);
-  --side-bottom: var(--cream);
-  --surface: #ffffff;
-  --text: var(--brown);
-  --text-muted: #6b5246;
-  --border: #f0dfc6;
   --cat-white: #ffffff;
-  --cat-white-shade: #e6d6c4;
+  --cat-white-shade: #d9d9d7;
   --cat-orange: #e98a2e; /* the orange cat stays orange in every theme */
   --cat-orange-stripe: #d06a17;
   --cat-ear: #f7a6a6;
-  --cat-eye: var(--brown);
+  --cat-eye: #273564;
   --cat-eye-ring: #f5c842;
 
-  --income: var(--blue-600);
+  --income: var(--blue);
   --expense: var(--pink-700);
 
-  --radius-sm: 10px;
-  --radius: 16px;
-  --radius-lg: 24px;
-  --shadow: 0 4px 16px rgba(74, 44, 33, 0.1);
-  --focus: 3px solid var(--blue-600);
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
+  --focus: 3px solid var(--blue);
 
   --font-display: 'IBM Plex Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
   --font-body: 'IBM Plex Sans Thai', 'Leelawadee UI', 'Tahoma', sans-serif;
 }
 
-/* Settings → ธีมสี. Only the accent scale and the sidebar/background change; status colours never do. */
-:root[data-theme='pink'] {
-  --orange-50: #ffeef5;
-  --orange-100: #ffd3e3;
-  --orange-300: #ff9cbd;
-  --orange-500: #e85d8f;
-  --orange-700: #b5365f;
-  --orange-800: #8f2a4a;
-  --cream: #fff1f6;
-  --bg: #fff1f6;
-  --side-top: #ffc2d6;
-  --side-mid: #ffe0ea;
-  --side-bottom: #fff1f6;
-  --border: #f3d3df;
-}
-:root[data-theme='blue'] {
-  --orange-50: #e8f3ff;
-  --orange-100: #cfe6ff;
-  --orange-300: #8cc4fb;
-  --orange-500: #3b8fe0;
-  --orange-700: #24609e;
-  --orange-800: #1b4a7a;
-  --cream: #eef6ff;
-  --bg: #eef6ff;
-  --side-top: #a9d4ff;
-  --side-mid: #d6ebff;
-  --side-bottom: #eef6ff;
-  --border: #cfe0f2;
-  --focus-color: #b5365f;
+/* Settings → ธีมสี "อบอุ่น": same layout, warm colours. Status colours never change. */
+:root[data-theme='warm'] {
+  --navy: #4a2c21;
+  --pink: #f7a55a;
+  --sky: #ffe08a;
+  --blue: #b4530f;
+  --slate: #6b5246;
+  --primary-hover: #f29a45;
+  --bg: #fff8ec;
+  --border: #f0dfc6;
+  --orange-50: #fff4e8;
+  --orange-100: #ffe3c7;
+  --blue-100: #fff1c2;
+  --pink-100: #ffe3c7;
+  --pink-700: #b4530f;
+  --cat-eye: #4a2c21;
 }

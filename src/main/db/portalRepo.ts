@@ -286,6 +286,11 @@ export function removeRow(db: Db, table: PortalTable, id: string): void {
     if (table === 'habits') {
       db.prepare(`UPDATE habit_checks SET deleted_at = ?, updated_at = ?, dirty = 1 WHERE habit_id = ? AND deleted_at IS NULL`).run(now, now, id)
     }
+    if (table === 'credit_cards') {
+      for (const child of ['card_charges', 'card_plans']) {
+        db.prepare(`UPDATE ${child} SET deleted_at = ?, updated_at = ?, dirty = 1 WHERE card_id = ? AND deleted_at IS NULL`).run(now, now, id)
+      }
+    }
   })
 }
 
@@ -298,6 +303,11 @@ export function restoreRow(db: Db, table: PortalTable, id: string): void {
     if (table === 'habits') {
       // Ticks that were removed together with the habit come back with it.
       db.prepare(`UPDATE habit_checks SET deleted_at = NULL, updated_at = ?, dirty = 1 WHERE habit_id = ? AND deleted_at = ?`).run(now, id, deletedAt)
+    }
+    if (table === 'credit_cards') {
+      for (const child of ['card_charges', 'card_plans']) {
+        db.prepare(`UPDATE ${child} SET deleted_at = NULL, updated_at = ?, dirty = 1 WHERE card_id = ? AND deleted_at = ?`).run(now, id, deletedAt)
+      }
     }
   })
 }

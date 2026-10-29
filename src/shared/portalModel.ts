@@ -117,12 +117,12 @@ export const NoteInputSchema = z.strictObject({
 export type NoteInput = z.infer<typeof NoteInputSchema>
 
 /** Tables managed by the generic create/update/remove channels, and the schema that guards each. */
-export const PORTAL_TABLES = ['tasks', 'journal_entries', 'goals', 'habits', 'notes'] as const
+export const PORTAL_TABLES = ['tasks', 'journal_entries', 'goals', 'habits', 'notes', 'credit_cards', 'card_charges', 'card_plans'] as const
 export type PortalTable = (typeof PORTAL_TABLES)[number]
 
 /* ---------- settings ---------- */
 
-export type ThemeName = 'orange' | 'pink' | 'blue'
+export type ThemeName = 'fresh' | 'warm'
 
 export interface AppSettings {
   theme: ThemeName
@@ -138,7 +138,7 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  theme: 'orange',
+  theme: 'fresh',
   dueSoonDays: 3,
   yearStyle: 'be',
   moneyStyle: 'symbol',
@@ -149,7 +149,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 export const SettingsPatchSchema = z
   .strictObject({
-    theme: z.enum(['orange', 'pink', 'blue']),
+    theme: z.enum(['fresh', 'warm']),
     dueSoonDays: z.number().int().min(1).max(14),
     yearStyle: z.enum(['be', 'ce']),
     moneyStyle: z.enum(['symbol', 'word']),
@@ -260,7 +260,7 @@ export function evaluateBadges(facts: BadgeFacts): Badge[] {
 }
 
 const GENTLE_MESSAGES = [
-  'วันนี้ค่อย ๆ ไปทีละอย่างนะ โมจิกับส้มโอเชียร์อยู่ตรงนี้',
+  'วันนี้ค่อย ๆ ไปทีละอย่างนะ เจ๊หมีกับอาจารย์ส้มเชียร์อยู่ตรงนี้',
   'จดนิดหน่อยก็นับว่าเก่งแล้ว',
   'พักบ้างก็ได้นะ ไม่ต้องรีบ',
   'เมื่อวานจะเป็นยังไงก็ช่าง วันนี้เริ่มใหม่ได้เสมอ',

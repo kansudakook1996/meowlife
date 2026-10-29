@@ -1,4 +1,5 @@
 import type { CalendarEvent } from './calendar'
+import type { CardCharge, CardInput, CardPlan, CardsOverview, ChargeInput, CreateBillResult, CreditCard, PlanInput } from './cards'
 import type {
   AppSettings,
   Badge,
@@ -92,6 +93,29 @@ export interface PortalBridge {
     update(id: string, input: NoteInput): R<Note>
     remove(id: string): R<void>
     restore(id: string): R<void>
+  }
+  cards: {
+    list(): R<CreditCard[]>
+    create(input: CardInput): R<CreditCard>
+    update(id: string, input: CardInput): R<CreditCard>
+    remove(id: string): R<void>
+    restore(id: string): R<void>
+    /** Every active card's statement for a statement month, with totals and the linked ledger bill. */
+    overview(month: string): R<CardsOverview>
+    charges: {
+      create(input: ChargeInput): R<CardCharge>
+      update(id: string, input: ChargeInput): R<CardCharge>
+      remove(id: string): R<void>
+      restore(id: string): R<void>
+    }
+    plans: {
+      create(input: PlanInput): R<CardPlan>
+      update(id: string, input: PlanInput): R<CardPlan>
+      remove(id: string): R<void>
+      restore(id: string): R<void>
+    }
+    /** Create/update the unpaid ledger bill of a statement (a paid bill is left as it is). */
+    createBill(cardId: string, month: string): R<CreateBillResult>
   }
   calendar: { range(from: string, to: string): R<CalendarEvent[]> }
   reminders: { due(): R<DueReminders> }

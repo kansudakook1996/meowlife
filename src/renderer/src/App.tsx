@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { monthOf, todayIso } from '@shared/dates'
 import type { Category, PaymentMethod } from '@shared/types'
 import logoUrl from './assets/logo.png'
 import { CatMascot } from './components/CatMascot'
+import { CommandPalette, type PaletteItem } from './components/CommandPalette'
+import { Icon, type IconName } from './components/Icon'
 import { Modal } from './components/Modal'
 import { TransactionForm } from './components/TransactionForm'
 import { meow, unwrap } from './lib/api'
@@ -12,7 +14,9 @@ import { useLoad } from './lib/useLoad'
 import { SyncProvider } from './lib/useSync'
 import { useUpdateStatus } from './lib/useUpdateStatus'
 import { CalendarPage } from './pages/CalendarPage'
+import { CardsPage } from './pages/CardsPage'
 import { CategoriesPage } from './pages/CategoriesPage'
+import { NAVIGATE_EVENT } from './lib/nav'
 import { CompanionPage } from './pages/CompanionPage'
 import { GoalsPage } from './pages/GoalsPage'
 import { HabitsPage } from './pages/HabitsPage'
@@ -29,40 +33,63 @@ import { SettingsPage } from './pages/SettingsPage'
 import { TransactionsPage } from './pages/TransactionsPage'
 
 type PageId =
-  | 'dashboard' | 'transactions' | 'recurring' | 'reports' | 'categories' | 'data'
+  | 'dashboard' | 'transactions' | 'cards' | 'recurring' | 'reports' | 'categories' | 'data'
   | 'calendar' | 'tasks' | 'journal' | 'goals' | 'habits' | 'notes' | 'insights' | 'companion' | 'settings'
 
-const NAV: Array<{ section?: string; id: PageId; icon: string; label: string }> = [
-  { id: 'dashboard', icon: '🏠', label: 'ภาพรวม' },
-  { section: 'การเงิน', id: 'transactions', icon: '📒', label: 'รายการรับ-จ่าย' },
-  { id: 'recurring', icon: '🔁', label: 'รายการประจำ' },
-  { id: 'reports', icon: '📈', label: 'รายงาน' },
-  { id: 'categories', icon: '🏷️', label: 'หมวดหมู่' },
-  { id: 'data', icon: '💾', label: 'ข้อมูลและสำรอง' },
-  { section: 'ชีวิตประจำวัน', id: 'calendar', icon: '📅', label: 'ปฏิทิน' },
-  { id: 'tasks', icon: '✅', label: 'สิ่งที่ต้องทำ' },
-  { id: 'journal', icon: '📔', label: 'บันทึกประจำวัน' },
-  { id: 'goals', icon: '🎯', label: 'เป้าหมาย' },
-  { id: 'habits', icon: '🌱', label: 'นิสัย' },
-  { id: 'notes', icon: '🗒️', label: 'โน้ต' },
-  { section: 'ภาพรวมชีวิต', id: 'insights', icon: '📊', label: 'สถิติ' },
-  { id: 'companion', icon: '🐱', label: 'แมวคู่ใจ' },
-  { id: 'settings', icon: '⚙️', label: 'ตั้งค่า' }
+const NAV: Array<{ section?: string; id: PageId; icon: IconName; label: string }> = [
+  { id: 'dashboard', icon: 'home', label: 'ภาพรวม' },
+  { section: 'การเงิน', id: 'transactions', icon: 'ledger', label: 'รายการรับ-จ่าย' },
+  { id: 'cards', icon: 'card', label: 'บัตรเครดิต' },
+  { id: 'recurring', icon: 'repeat', label: 'รายการประจำ' },
+  { id: 'reports', icon: 'chart', label: 'รายงาน' },
+  { id: 'categories', icon: 'tag', label: 'หมวดหมู่' },
+  { id: 'data', icon: 'archive', label: 'ข้อมูลและสำรอง' },
+  { section: 'ชีวิตประจำวัน', id: 'calendar', icon: 'calendar', label: 'ปฏิทิน' },
+  { id: 'tasks', icon: 'tasks', label: 'สิ่งที่ต้องทำ' },
+  { id: 'journal', icon: 'journal', label: 'บันทึกประจำวัน' },
+  { id: 'goals', icon: 'target', label: 'เป้าหมาย' },
+  { id: 'habits', icon: 'sprout', label: 'นิสัย' },
+  { id: 'notes', icon: 'note', label: 'โน้ต' },
+  { section: 'ภาพรวมชีวิต', id: 'insights', icon: 'bars', label: 'สถิติ' },
+  { id: 'companion', icon: 'cat', label: 'แมวคู่ใจ' },
+  { id: 'settings', icon: 'sliders', label: 'ตั้งค่า' }
 ]
 
+const PAGE_KEY = 'meowlife.lastPage'
+
+function loadLastPage(): PageId {
+  try {
+    const v = window.localStorage.getItem(PAGE_KEY)
+    return NAV.some((n) => n.id === v) ? (v as PageId) : 'dashboard'
+  } catch {
+    return 'dashboard'
+  }
+}
 interface Catalog {
   categories: Category[]
   paymentMethods: PaymentMethod[]
 }
 
 export function App(): React.JSX.Element {
-  const [page, setPage] = useState<PageId>('dashboard')
+  const [page, setPageState] = useState<PageId>(loadLastPage)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [ledgerSearch, setLedgerSearch] = useState({ text: '', nonce: 0 })
+  const [taskAddSignal, setTaskAddSignal] = useState(0)
+  const [cardChargeSignal, setCardChargeSignal] = useState(0)
   const [month, setMonth] = useState(() => monthOf(todayIso()))
   const [dataVersion, setDataVersion] = useState(0)
   const [editor, setEditor] = useState<EditorRequest | null>(null)
   const [searchFocusSignal, setSearchFocusSignal] = useState(0)
   const { epoch } = useSettings()
 
+  const setPage = useCallback((id: PageId) => {
+    setPageState(id)
+    try {
+      window.localStorage.setItem(PAGE_KEY, id)
+    } catch {
+      /* remembering the page is a convenience only */
+    }
+  }, [])
   const refresh = useCallback(() => setDataVersion((v) => v + 1), [])
   const openEditor = useCallback((req: EditorRequest) => setEditor(req), [])
 
@@ -72,11 +99,24 @@ export function App(): React.JSX.Element {
     paymentMethods: await unwrap(meow().paymentMethods.list())
   }))
 
+  // Other components (e.g. the dashboard) can ask to open a page.
+  useEffect(() => {
+    const onNavigate = (e: Event): void => {
+      const target = (e as CustomEvent<string>).detail
+      if (NAV.some((n) => n.id === target)) setPage(target as PageId)
+    }
+    window.addEventListener(NAVIGATE_EVENT, onNavigate)
+    return () => window.removeEventListener(NAVIGATE_EVENT, onNavigate)
+  }, [setPage])
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (!e.ctrlKey || e.altKey || e.shiftKey) return
       const key = e.key.toLowerCase()
-      if (key === 'n') {
+      if (key === 'k') {
+        e.preventDefault()
+        setPaletteOpen(true)
+      } else if (key === 'n') {
         e.preventDefault()
         setEditor({ mode: 'new', kind: 'expense' })
       } else if (key === 'f') {
@@ -87,8 +127,20 @@ export function App(): React.JSX.Element {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [])
+  }, [setPage])
 
+  const paletteItems = useMemo<PaletteItem[]>(
+    () => [
+      { id: 'add-expense', label: 'เพิ่มรายจ่าย', hint: 'เพิ่ม', run: () => setEditor({ mode: 'new', kind: 'expense' }) },
+      { id: 'add-income', label: 'เพิ่มรายรับ', hint: 'เพิ่ม', run: () => setEditor({ mode: 'new', kind: 'income' }) },
+      { id: 'add-task', label: 'เพิ่มงานใหม่', hint: 'เพิ่ม', run: () => { setPage('tasks'); setTaskAddSignal((s) => s + 1) } },
+      { id: 'add-card-charge', label: 'เพิ่มยอดใช้จ่ายบัตรเครดิต', hint: 'เพิ่ม', run: () => { setPage('cards'); setCardChargeSignal((s) => s + 1) } },
+      { id: 'journal-today', label: 'จดบันทึกวันนี้', hint: 'ไปที่หน้า', run: () => setPage('journal') },
+      { id: 'habits-today', label: 'ติ๊กนิสัยวันนี้', hint: 'ไปที่หน้า', run: () => setPage('habits') },
+      ...NAV.map((n): PaletteItem => ({ id: `go-${n.id}`, label: n.label, hint: 'ไปที่หน้า', run: () => setPage(n.id) }))
+    ],
+    [setPage]
+  )
   if (catalogError) {
     return (
       <div className="empty" style={{ height: '100%', justifyContent: 'center' }}>
@@ -114,15 +166,15 @@ export function App(): React.JSX.Element {
       <div className="app">
         <nav className="sidebar" aria-label="เมนูหลัก">
           <div className="brand">
-            <img src={logoUrl} alt="" width={52} height={52} className="brand-logo" />
+            <img src={logoUrl} alt="" width={34} height={34} className="brand-logo" />
             <span className="brand-name">MeowLife</span>
           </div>
           {NAV.map((n) => (
             <div key={n.id} style={{ display: 'contents' }}>
               {n.section && <div className="nav-section">{n.section}</div>}
               <button type="button" className="nav-item" aria-current={page === n.id ? 'page' : undefined} onClick={() => setPage(n.id)}>
-                <span className="nav-icon" aria-hidden="true">
-                  {n.icon}
+                <span className="nav-icon">
+                  <Icon name={n.icon} />
                 </span>
                 {n.label}
               </button>
@@ -132,11 +184,20 @@ export function App(): React.JSX.Element {
 
         <main className="main" key={epoch}>
           <UpdateBanner />
+          <div className="topbar">
+            <button type="button" className="btn btn-secondary" onClick={() => setPaletteOpen(true)} title="ค้นหาหน้าหรือสั่งงาน (Ctrl+K)">
+              <Icon name="search" /> ค้นหา / สั่งงาน <kbd>Ctrl+K</kbd>
+            </button>
+            <button type="button" className="btn btn-primary" onClick={() => setEditor({ mode: 'new', kind: 'expense' })} title="เพิ่มรายการรับ-จ่าย (Ctrl+N)">
+              <Icon name="plus" /> เพิ่มรายการ <kbd>Ctrl+N</kbd>
+            </button>
+          </div>
           {page === 'dashboard' && <DashboardPage />}
-          {page === 'transactions' && <TransactionsPage searchFocusSignal={searchFocusSignal} />}
+          {page === 'transactions' && <TransactionsPage key={ledgerSearch.nonce} searchFocusSignal={searchFocusSignal} initialSearch={ledgerSearch.text} />}
+          {page === 'cards' && <CardsPage key={cardChargeSignal} startAddingCharge={cardChargeSignal > 0} />}
           {page === 'recurring' && <RecurringPage />}
           {page === 'calendar' && <CalendarPage />}
-          {page === 'tasks' && <TasksPage />}
+          {page === 'tasks' && <TasksPage key={taskAddSignal} startAdding={taskAddSignal > 0} />}
           {page === 'journal' && <JournalPage />}
           {page === 'goals' && <GoalsPage />}
           {page === 'habits' && <HabitsPage />}
@@ -151,6 +212,15 @@ export function App(): React.JSX.Element {
       </div>
 
       <TransactionEditor request={editor} onClose={() => setEditor(null)} />
+      <CommandPalette
+        open={paletteOpen}
+        items={paletteItems}
+        onClose={() => setPaletteOpen(false)}
+        onSearchLedger={(text) => {
+          setLedgerSearch((s) => ({ text, nonce: s.nonce + 1 }))
+          setPage('transactions')
+        }}
+      />
       <BadgeWatcher />
     </PortalProvider>
     </SyncProvider>

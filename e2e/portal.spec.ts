@@ -166,14 +166,15 @@ test('insights and companion reflect the activity, with locked and earned badges
 })
 
 test('settings: theme, year style and money style change the app; choices survive a restart', async () => {
+  await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'warm')
   await nav('ตั้งค่า').click()
-  await page.getByRole('button', { name: /ฟ้าพาสเทล/ }).click()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'blue')
+  await page.getByRole('button', { name: /อบอุ่น/ }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'warm')
   await page.getByLabel('การแสดงปี').selectOption('ce')
   await page.getByLabel('การแสดงเงิน (บาท)').selectOption('word')
   await nav('ปฏิทิน').click()
   await expect(page.getByRole('grid')).toHaveAttribute('aria-label', new RegExp(`${today.getFullYear()}`)) // ค.ศ.
-  await page.screenshot({ path: 'test-results/14-theme-blue.png' })
+  await page.screenshot({ path: 'test-results/14-theme-warm.png' })
 
   await app.close()
   app = await electron.launch({
@@ -181,8 +182,8 @@ test('settings: theme, year style and money style change the app; choices surviv
     env: { ...process.env, MEOWLIFE_USER_DATA: userData, ELECTRON_RENDERER_URL: '' }
   })
   page = await app.firstWindow()
-  await page.getByRole('heading', { name: 'ภาพรวม' }).waitFor()
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'blue')
+  await page.getByRole('navigation').waitFor()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'warm')
   await nav('เป้าหมาย').click()
   await expect(page.getByText(/บาท/).first()).toBeVisible() // "10,000.00 บาท" style survived
 })
