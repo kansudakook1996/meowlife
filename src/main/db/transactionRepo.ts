@@ -5,7 +5,7 @@ import { TransactionQuerySchema, type TransactionInput, type TransactionQuery } 
 import { computeStatus } from '@shared/status'
 import type { EntryKind, TransactionView } from '@shared/types'
 import { assertReferencesExist, NotFoundError } from './catalogRepo'
-import { nowIso, type Db } from './connection'
+import { inTransaction, nowIso, type Db } from './connection'
 
 interface TransactionRow {
   id: string
@@ -20,6 +20,7 @@ interface TransactionRow {
   paid_date: string | null
   note: string
   recurring_rule_id: string | null
+  priority_order: number | null
   created_at: string
   updated_at: string
   category_name: string | null
@@ -49,6 +50,7 @@ function toView(r: TransactionRow, today: string): TransactionView {
     paidDate: r.paid_date,
     note: r.note,
     recurringRuleId: r.recurring_rule_id,
+    priorityOrder: r.priority_order,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     categoryName: r.category_name,
@@ -219,4 +221,20 @@ export function restoreTransaction(db: Db, id: string): void {
     )
     .run(nowIso(), id)
   if (result.changes === 0) throw new NotFoundError('ไม่พบรายการที่จะกู้คืน')
+}
+
+/**
+ * Save the user's importance order: `ids` is the list in the order they want it (most important first).
+ * Unknown or deleted ids are ignored; every listed item gets its position as `priority_order`.
+ */
+export function reorderTransactions(db: Db, ids: string[]): number {
+  const update = db.prepare('UPDATE transactions SET priority_order = ?, updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL AND (priority_order IS NOT ?)')
+  const now = nowIso()
+  return inTransaction(db, () => {
+    let changed = 0
+    ids.forEach((id, index) => {
+      changed += Number(update.run(index, now, id, index).changes)
+    })
+    return changed
+  })
 }

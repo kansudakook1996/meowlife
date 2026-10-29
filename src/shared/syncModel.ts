@@ -63,7 +63,8 @@ export const TABLE_COLUMNS: Record<SyncTable, readonly string[]> = {
     'paid_date',
     'note',
     'recurring_rule_id',
-    'recurring_period'
+    'recurring_period',
+    'priority_order'
   ],
   tasks: [...COMMON, 'title', 'note', 'due_date', 'repeat', 'is_done', 'done_date'],
   journal_entries: [...COMMON, 'entry_date', 'mood', 'body'],
@@ -92,6 +93,8 @@ export function rowToDoc(table: SyncTable, row: Record<string, unknown>): SyncDo
 export function docToRow(table: SyncTable, doc: SyncDoc): Record<string, string | number | null> {
   const row: Record<string, string | number | null> = {}
   for (const col of TABLE_COLUMNS[table]) row[col] = doc[toCamel(col)] ?? null
+  // NOT NULL column that older documents lack: no value means nothing is split.
+  if ('partner_satang' in row && row['partner_satang'] === null) row['partner_satang'] = 0
   return row
 }
 
@@ -101,7 +104,8 @@ const Stamp = z.string().min(20).max(40)
 const Int01 = z.number().int().min(0).max(1)
 const Amount = z.number().int().min(1).max(MAX_SATANG)
 /** The partner's share of a card amount (0 = none). */
-const Share = z.number().int().min(0).max(MAX_SATANG)
+// Optional because documents written before v0.6.0 do not carry it (read as 0 = all ours).
+const Share = z.number().int().min(0).max(MAX_SATANG).optional()
 
 const base = {
   id: IdSchema,
@@ -149,7 +153,9 @@ export const DOC_SCHEMAS: Record<SyncTable, z.ZodType<SyncDoc>> = {
     paidDate: IsoDateSchema.nullable(),
     note: z.string().max(500),
     recurringRuleId: IdSchema.nullable(),
-    recurringPeriod: MonthSchema.nullable()
+    recurringPeriod: MonthSchema.nullable(),
+    // Added later: documents written by older versions do not have it.
+    priorityOrder: z.number().int().min(0).max(100000).nullish()
   }) as unknown as z.ZodType<SyncDoc>,
   tasks: z.strictObject({
     ...base,

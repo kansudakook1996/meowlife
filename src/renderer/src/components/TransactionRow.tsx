@@ -4,7 +4,20 @@ import type { TransactionView } from '@shared/types'
 import { usePortal } from '../lib/portal'
 import { StatusBadge } from './StatusBadge'
 
-export function TransactionRow({ item, showDate = false }: { item: TransactionView; showDate?: boolean }): React.JSX.Element {
+/** Shown in the importance-order view: where the item sits and how to move it (buttons or drag and drop). */
+export interface RowOrder {
+  rank: number
+  canUp: boolean
+  canDown: boolean
+  onUp: () => void
+  onDown: () => void
+  dragging: boolean
+  onDragStart: () => void
+  onDragEnd: () => void
+  onDrop: () => void
+}
+
+export function TransactionRow({ item, showDate = false, order }: { item: TransactionView; showDate?: boolean; order?: RowOrder }): React.JSX.Element {
   const { openEditor, togglePaid, deleteTransaction } = usePortal()
   const sign = item.kind === 'income' ? '+' : '−'
   const paidAction = item.isPaid
@@ -16,7 +29,22 @@ export function TransactionRow({ item, showDate = false }: { item: TransactionVi
       : 'ทำเครื่องหมายว่าจ่ายแล้ว'
 
   return (
-    <li className="tx-row">
+    <li
+      className="tx-row"
+      style={order ? { gridTemplateColumns: 'auto auto minmax(0, 1fr) auto auto', opacity: order.dragging ? 0.5 : 1 } : undefined}
+      draggable={order ? true : undefined}
+      onDragStart={order ? () => order.onDragStart() : undefined}
+      onDragEnd={order ? () => order.onDragEnd() : undefined}
+      onDragOver={order ? (e) => e.preventDefault() : undefined}
+      onDrop={order ? (e) => { e.preventDefault(); order.onDrop() } : undefined}
+    >
+      {order && (
+        <div className="tx-order" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <button type="button" className="icon-btn" aria-label={`เลื่อน ${item.title} ขึ้น`} title="เลื่อนขึ้น (สำคัญขึ้น)" disabled={!order.canUp} onClick={order.onUp}>▲</button>
+          <span className="muted small" aria-label={`ลำดับที่ ${order.rank}`} title="ลากเพื่อจัดลำดับได้">{order.rank}</span>
+          <button type="button" className="icon-btn" aria-label={`เลื่อน ${item.title} ลง`} title="เลื่อนลง (สำคัญน้อยลง)" disabled={!order.canDown} onClick={order.onDown}>▼</button>
+        </div>
+      )}
       <span className={`tx-icon ${item.kind}`} aria-hidden="true">
         {item.categoryIcon ?? (item.kind === 'income' ? '💰' : '💸')}
       </span>

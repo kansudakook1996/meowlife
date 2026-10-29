@@ -3,6 +3,8 @@ import { formatSatang } from '@shared/money'
 import { categoryChanges, trendInsights } from '@shared/trend'
 import { CatMascot } from '../components/CatMascot'
 import { MonthPicker } from '../components/MonthPicker'
+import { PartnerChart } from '../components/PartnerChart'
+import { SpendingPie } from '../components/SpendingPie'
 import { TrendChart } from '../components/TrendChart'
 import { meow, unwrap } from '../lib/api'
 import { usePortal } from '../lib/portal'
@@ -13,12 +15,13 @@ const TREND_MONTHS = 6
 export function ReportsPage(): React.JSX.Element {
   const { month, setMonth, dataVersion } = usePortal()
   const { data, error } = useLoad(`report:${month}:${dataVersion}`, async () => {
-    const [summary, previous, trend] = await Promise.all([
+    const [summary, previous, trend, analytics] = await Promise.all([
       unwrap(meow().summary.month(month)),
       unwrap(meow().summary.month(addMonths(month, -1))),
-      unwrap(meow().reports.trend(month, TREND_MONTHS))
+      unwrap(meow().reports.trend(month, TREND_MONTHS)),
+      unwrap(meow().portal.cards.analytics(month))
     ])
-    return { summary, previous, trend }
+    return { summary, previous, trend, analytics }
   })
 
   const insights = data ? trendInsights(data.trend) : []
@@ -77,6 +80,31 @@ export function ReportsPage(): React.JSX.Element {
               </ul>
             </div>
           </section>
+
+          <section className="card" aria-labelledby="pie-title">
+            <div className="card-title">
+              <h2 id="pie-title">🥧 สัดส่วนการใช้จ่ายจริงของเรา</h2>
+            </div>
+            {data.analytics.spending.length === 0 ? (
+              <p className="muted">ยังไม่มีรายจ่ายในเดือนนี้</p>
+            ) : (
+              <>
+                <SpendingPie slices={data.analytics.spending} total={data.analytics.spendingTotal} />
+                <p className="muted small" style={{ marginTop: 8 }}>
+                  รวมรายจ่ายในรายการรับ-จ่ายกับยอดที่ใช้บัตรเครดิต (บิลบัตรที่ครบกำหนดเดือนนี้) โดย <strong>ตัดส่วนที่แฟนจ่ายออกแล้ว</strong> และไม่นับรายการจ่ายบิลบัตรซ้ำ
+                </p>
+              </>
+            )}
+          </section>
+
+          {data.analytics.partnerMonths.some((m) => m.owedSatang > 0) && (
+            <section className="card" aria-labelledby="partner-title">
+              <div className="card-title">
+                <h2 id="partner-title">💞 แฟนโอนเงินให้ {data.analytics.partnerMonths.length} เดือน</h2>
+              </div>
+              <PartnerChart months={data.analytics.partnerMonths} />
+            </section>
+          )}
 
           <section className="card" aria-labelledby="catrep-title">
             <div className="card-title">

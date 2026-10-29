@@ -283,6 +283,13 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    version: 7,
+    up(db) {
+      // The user's own importance order of ledger items (NULL = not ordered yet, shown after the ordered ones).
+      db.exec('ALTER TABLE transactions ADD COLUMN priority_order INTEGER')
+    }
   }
 ]
 

@@ -9,13 +9,15 @@ import {
   type CardInput,
   type CardRecurring,
   type CardRecurringInput,
+  type CardStatementView,
   type ChargeInput,
   type CardPlan,
   type CardsOverview,
   type CreateBillResult,
   type CreditCard,
   type PartnerPaymentInfo,
-  type PlanInput
+  type PlanInput,
+  type SetCardPaidResult
 } from '@shared/cards'
 import { addMonths, formatThaiMonth, recurringDateFor } from '@shared/dates'
 import { formatSatang } from '@shared/money'
@@ -24,7 +26,7 @@ import { NotFoundError } from './catalogRepo'
 import { inTransaction, nowIso, type Db } from './connection'
 import { DEFAULT_CATEGORIES } from './defaults'
 import { deterministicId } from './ids'
-import { getTransaction } from './transactionRepo'
+import { getTransaction, setPaid } from './transactionRepo'
 
 type Row = Record<string, unknown>
 const all = (db: Db, sql: string, ...args: Array<string | number | null>): Row[] => db.prepare(sql).all(...args) as unknown as Row[]
@@ -271,10 +273,8 @@ function partnerPaymentInfo(db: Db, cardId: string, month: string): PartnerPayme
   return r ? { amountSatang: r['amount_satang'] as number, paidDate: r['paid_date'] as string } : null
 }
 
-export function cardsOverview(db: Db, month: string, today: string): CardsOverview {
-  // A statement holds purchases from the previous calendar month and this one, so create both months' repeating charges first.
-  ensureCardRecurringForMonth(db, addMonths(month, -1))
-  ensureCardRecurringForMonth(db, month)
+/** Statement overview WITHOUT creating any repeating charges first (use cardsOverview unless you did that yourself). */
+export function buildOverview(db: Db, month: string, today: string): CardsOverview {
   const cards = listCards(db).filter((c) => c.isActive)
   const recurring = listCardRecurring(db)
   const charges = all(db, 'SELECT * FROM card_charges WHERE deleted_at IS NULL AND bill_month = ?', month).map(toCharge)
@@ -284,6 +284,19 @@ export function cardsOverview(db: Db, month: string, today: string): CardsOvervi
     cards.map((card) => ({ ...buildStatement(card, charges, plans, month, recurring), bill: billInfo(db, card.id, month, today), partnerPayment: partnerPaymentInfo(db, card.id, month) })),
     today
   )
+}
+
+export function cardsOverview(db: Db, month: string, today: string): CardsOverview {
+  // A statement holds purchases from the previous calendar month and this one, so create both months' repeating charges first.
+  ensureCardRecurringForMonth(db, addMonths(month, -1))
+  ensureCardRecurringForMonth(db, month)
+  return buildOverview(db, month, today)
+}
+
+function billNote(s: CardStatementView): string {
+  return s.partnerTotal > 0
+    ? `ส่วนของเรา (ยอดเต็มของบัตร ${formatSatang(s.total)} · แฟนจ่าย ${formatSatang(s.partnerTotal)}) รอบบิล ${formatThaiMonth(s.month)}`
+    : `สร้างจากยอดบัตรเครดิต (รอบบิล ${formatThaiMonth(s.month)})`
 }
 
 /**
@@ -300,7 +313,7 @@ export function createCardBill(db: Db, cardId: string, month: string, today: str
   // Only OUR part is an expense of ours; the partner's part is tracked on the statement (and repaid via setPartnerPaid).
   if (statement.mineTotal <= 0) throw new NotFoundError('รอบนี้แฟนจ่ายทั้งหมด จึงไม่มีส่วนของเราให้สร้างเป็นรายการจ่ายบิล')
   const mine = statement.mineTotal
-  const note = statement.partnerTotal > 0 ? `ส่วนของเรา (ยอดเต็มของบัตร ${formatSatang(statement.total)} · แฟนจ่าย ${formatSatang(statement.partnerTotal)}) รอบบิล ${formatThaiMonth(month)}` : `สร้างจากยอดบัตรเครดิต (รอบบิล ${formatThaiMonth(month)})`
+  const note = billNote(statement)
 
   const id = cardBillId(cardId, month)
   const title = billTitle(card.name, month, formatThaiMonth)
@@ -349,4 +362,57 @@ export function setPartnerPaid(db: Db, cardId: string, month: string, paid: bool
        deleted_at = NULL, updated_at = excluded.updated_at, dirty = 1`
   ).run(id, cardId, month, statement.partnerTotal, today, now, now)
   return { amountSatang: statement.partnerTotal, paidDate: today }
+}
+
+/**
+ * Mark the statement's bill as paid (or undo it). The bill is created first when it does not exist yet, so one press
+ * puts "which card, how much" into the ledger — as a paid expense — in the month it is due.
+ */
+export function setCardPaid(db: Db, cardId: string, month: string, paid: boolean, today: string): SetCardPaidResult {
+  const id = cardBillId(cardId, month)
+  getCard(db, cardId)
+  if (paid) {
+    createCardBill(db, cardId, month, today) // creates or refreshes the amount; leaves an already-paid bill alone
+    setPaid(db, id, true, today)
+  } else if (one(db, 'SELECT id FROM transactions WHERE id = ? AND deleted_at IS NULL', id)) {
+    setPaid(db, id, false, today)
+  }
+  const t = one(db, 'SELECT id FROM transactions WHERE id = ? AND deleted_at IS NULL', id) ? getTransaction(db, id, today) : null
+  return { isPaid: t?.isPaid ?? false, transactionId: id, amountSatang: t?.amountSatang ?? 0 }
+}
+
+/**
+ * Keep every UNPAID ledger bill equal to what its statement really is now (charges, instalments, repeating charges and the
+ * partner's share all move the total). Bills that are paid are never touched; a bill whose statement became empty is removed.
+ * Looks one year back and one year ahead, and only at months that already have a bill, so browsing never creates anything.
+ */
+export function refreshCardBills(db: Db, today: string): number {
+  const cards = listCards(db).filter((c) => c.isActive)
+  if (cards.length === 0) return 0
+  const thisMonth = today.slice(0, 7)
+  let changed = 0
+  for (let i = -12; i <= 12; i++) {
+    const month = addMonths(thisMonth, i)
+    const open = cards.filter((c) => one(db, 'SELECT 1 AS x FROM transactions WHERE id = ? AND deleted_at IS NULL AND is_paid = 0', cardBillId(c.id, month)))
+    if (open.length === 0) continue
+    const overview = cardsOverview(db, month, today)
+    for (const s of overview.cards) {
+      if (!open.some((c) => c.id === s.card.id)) continue
+      const id = cardBillId(s.card.id, month)
+      const now = nowIso()
+      if (s.mineTotal <= 0) {
+        db.prepare('UPDATE transactions SET deleted_at = ?, updated_at = ?, dirty = 1 WHERE id = ?').run(now, now, id)
+        changed++
+        continue
+      }
+      const row = one(db, 'SELECT amount_satang, due_date, note FROM transactions WHERE id = ?', id) as Row
+      const note = String(row['note']).startsWith('สร้างจาก') || String(row['note']).startsWith('ส่วนของเรา') ? billNote(s) : String(row['note'])
+      if (row['amount_satang'] === s.mineTotal && row['due_date'] === s.dueDate && row['note'] === note) continue
+      db.prepare('UPDATE transactions SET amount_satang = ?, txn_date = ?, due_date = ?, note = ?, updated_at = ?, dirty = 1 WHERE id = ?').run(
+        s.mineTotal, s.dueDate, s.dueDate, note, now, id
+      )
+      changed++
+    }
+  }
+  return changed
 }

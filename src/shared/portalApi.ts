@@ -1,5 +1,6 @@
 import type { CalendarEvent } from './calendar'
-import type { CardCharge, CardInput, CardPlan, CardRecurring, CardRecurringInput, CardsOverview, PartnerPaymentInfo, ChargeInput, CreateBillResult, CreditCard, PlanInput } from './cards'
+import type { CardCharge, CardInput, CardPlan, CardRecurring, CardRecurringInput, CardsOverview, PartnerPaymentInfo, SetCardPaidResult, ChargeInput, CreateBillResult, CreditCard, PlanInput } from './cards'
+import type { CardAnalytics } from './analytics'
 import type {
   AppSettings,
   Badge,
@@ -94,6 +95,10 @@ export interface PortalBridge {
     remove(id: string): R<void>
     restore(id: string): R<void>
   }
+  ledger: {
+    /** Save the importance order of ledger items (most important first). */
+    reorder(ids: string[]): R<number>
+  }
   cards: {
     list(): R<CreditCard[]>
     create(input: CardInput): R<CreditCard>
@@ -122,6 +127,10 @@ export interface PortalBridge {
     }
     /** Record (paid = true) or undo that the partner has repaid their part of a statement. */
     partnerPaid(cardId: string, month: string, paid: boolean): R<PartnerPaymentInfo | null>
+    /** Mark the statement's bill paid/unpaid in the ledger (creating the bill first if needed). */
+    setPaid(cardId: string, month: string, paid: boolean): R<SetCardPaidResult>
+    /** Spending split by category (partner's share removed) and the partner's transfers by month. */
+    analytics(month: string): R<CardAnalytics>
     /** Create/update the unpaid ledger bill of a statement (a paid bill is left as it is). */
     createBill(cardId: string, month: string): R<CreateBillResult>
   }

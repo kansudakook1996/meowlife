@@ -81,16 +81,15 @@ test('create the ledger bill, keep it up to date, and never duplicate it', async
   await expect(page.getByText(/สร้างรายการจ่ายบิลแล้ว/)).toBeVisible()
   await expect(page.getByText(/รายการจ่ายบิล ฿1,750.00/)).toBeVisible()
 
-  // A new purchase makes the bill out of date; one click updates the same bill.
+  // A new purchase changes the statement: the unpaid ledger bill follows by itself, no button to press.
   await page.getByRole('button', { name: '＋ เพิ่มยอด', exact: true }).click()
   const dialog = page.getByRole('dialog')
   await dialog.getByLabel('วันที่ใช้จ่าย').fill(`${month}-06`)
   await dialog.getByLabel('รายการ', { exact: true }).fill('ซื้อของใช้')
   await dialog.getByLabel('จำนวนเงิน (บาท)').fill('500')
   await dialog.getByRole('button', { name: 'บันทึก' }).click()
-  await page.getByRole('button', { name: /อัปเดตยอดบิลเป็น ฿2,250.00/ }).click()
-  await expect(page.getByText(/อัปเดตยอดบิลเป็น ฿2,250.00 แล้ว/)).toBeVisible()
   await expect(page.getByText(/รายการจ่ายบิล ฿2,250.00/)).toBeVisible()
+  await expect(page.getByRole('button', { name: /อัปเดตยอดบิล/ })).toHaveCount(0)
 
   // The bill is a normal ledger item due next month (card due day 10 < statement day 25).
   await nav('รายการรับ-จ่าย').click()
@@ -166,4 +165,37 @@ test("partner's share: borrowed-card spending is split out, the ledger bill hold
   await page.screenshot({ path: 'test-results/19-cards-partner.png', fullPage: true })
   await page.getByRole('button', { name: 'ยกเลิกการติ๊ก' }).click()
   await expect(page.getByRole('button', { name: 'แฟนโอนแล้ว', exact: true })).toBeVisible()
+})
+
+test('pay a card from the card page: the ledger gets a paid bill with the card name, and the charts exclude the partner', async () => {
+  await page.getByRole('button', { name: /✓ จ่ายแล้ว ฿2,250.00/ }).click()
+  await expect(page.getByText(/จ่ายบิลแล้ว ฿2,250.00/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'ยกเลิกจ่าย' })).toBeVisible()
+
+  // the ledger (month the bill is due) now holds a PAID expense named after the card, for our part only
+  await nav('รายการรับ-จ่าย').click()
+  await page.getByRole('button', { name: 'เดือนถัดไป' }).click()
+  await expect(page.getByText(/ชำระบัตร KTC/)).toHaveCount(1)
+  await expect(page.locator('li.tx-row', { hasText: 'ชำระบัตร KTC' })).toContainText('จ่ายแล้ว')
+  await expect(page.locator('li.tx-row', { hasText: 'ชำระบัตร KTC' })).toContainText('฿2,250.00')
+
+  // reports: pie of OUR spending (partner's 1,000 gone, bill not counted twice) + bars of what the partner transferred
+  await nav('รายงาน').click()
+  await expect(page.getByRole('heading', { name: /สัดส่วนการใช้จ่ายจริงของเรา/ })).toBeVisible()
+  const pie = page.getByRole('table', { name: 'สัดส่วนการใช้จ่ายตามหมวด' })
+  await expect(pie).toContainText('อาหาร')
+  await expect(pie).toContainText('ผ่อนชำระบัตรเครดิต')
+  await expect(pie).not.toContainText('ชำระบัตร KTC')
+  await expect(page.getByRole('img', { name: /กราฟวงกลมสัดส่วนการใช้จ่ายของเรา รวม ฿2,250.00/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /แฟนโอนเงินให้/ })).toBeVisible()
+  await expect(page.getByRole('table', { name: 'ยอดที่แฟนโอนให้รายเดือน' })).toContainText('฿1,000.00')
+  await page.getByRole('heading', { name: /สัดส่วนการใช้จ่ายจริงของเรา/ }).scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'test-results/20-reports-charts.png' })
+  await page.getByRole('heading', { name: /แฟนโอนเงินให้/ }).scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'test-results/20b-reports-partner.png' })
+
+  await nav('บัตรเครดิต').click()
+  await page.getByRole('button', { name: 'เดือนก่อน' }).click()
+  await page.getByRole('button', { name: 'ยกเลิกจ่าย' }).click()
+  await expect(page.getByRole('button', { name: /✓ จ่ายแล้ว ฿2,250.00/ })).toBeVisible()
 })

@@ -49,6 +49,16 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
     }
   }
 
+  const setCardPaid = async (cardId: string, paid: boolean): Promise<void> => {
+    try {
+      const r = await unwrap(meow().portal.cards.setPaid(cardId, month, paid))
+      refresh()
+      toast(paid ? `จ่ายบิลแล้ว ${formatSatang(r.amountSatang)} · บันทึกไว้ในรายการรับ-จ่ายแล้ว` : 'ยกเลิกการจ่ายแล้ว')
+    } catch (e) {
+      toast(errorMessage(e), { tone: 'error' })
+    }
+  }
+
   const partnerPaid = async (cardId: string, paid: boolean): Promise<void> => {
     try {
       await unwrap(meow().portal.cards.partnerPaid(cardId, month, paid))
@@ -151,6 +161,7 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
           onEditRecurring={(rule) => setEditing({ type: 'recurring', cardId: s.card.id, rule })}
           onDeleteRecurring={(rule) => void delRec(rule.id, rule.title)}
           onPartnerPaid={(paid) => void partnerPaid(s.card.id, paid)}
+          onPaid={(paid) => void setCardPaid(s.card.id, paid)}
         />
       ))}
 
@@ -196,11 +207,11 @@ function CardSection(props: {
   onEditRecurring: (r: CardRecurring) => void
   onDeleteRecurring: (r: CardRecurring) => void
   onPartnerPaid: (paid: boolean) => void
+  onPaid: (paid: boolean) => void
 }): React.JSX.Element {
   const { s } = props
   const [showOld, setShowOld] = useState(false)
   const old = s.allPlans.filter((l) => l.state !== 'active')
-  const billStale = s.bill && !s.bill.isPaid && s.bill.amountSatang !== s.mineTotal
   const due =
     s.bill?.isPaid ? 'จ่ายแล้ว' : s.daysToDue === null ? '' : s.daysToDue < 0 ? `เลยกำหนด ${-s.daysToDue} วัน` : s.daysToDue === 0 ? 'ครบกำหนดวันนี้' : `อีก ${s.daysToDue} วัน`
 
@@ -231,9 +242,19 @@ function CardSection(props: {
         ) : (
           <span className="badge badge-unpaid">ยังไม่ได้สร้างรายการจ่ายบิล</span>
         )}
+        {!s.bill && s.mineTotal > 0 && (
+          <button type="button" className="btn btn-secondary" onClick={props.onBill}>
+            สร้างรายการจ่ายบิล
+          </button>
+        )}
         {!s.bill?.isPaid && s.mineTotal > 0 && (
-          <button type="button" className={billStale || !s.bill ? 'btn btn-primary' : 'btn btn-secondary'} onClick={props.onBill}>
-            {!s.bill ? 'สร้างรายการจ่ายบิล' : billStale ? `อัปเดตยอดบิลเป็น ${formatSatang(s.mineTotal)}` : 'อัปเดตยอดบิล'}
+          <button type="button" className="btn btn-primary" onClick={() => props.onPaid(true)}>
+            ✓ จ่ายแล้ว {formatSatang(s.mineTotal)}
+          </button>
+        )}
+        {s.bill?.isPaid && (
+          <button type="button" className="btn btn-ghost" onClick={() => props.onPaid(false)}>
+            ยกเลิกจ่าย
           </button>
         )}
         <button type="button" className="btn btn-ghost" onClick={props.onEditCard}>แก้ไขบัตร</button>

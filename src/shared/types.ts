@@ -29,6 +29,8 @@ export interface Transaction {
   paidDate: string | null
   note: string
   recurringRuleId: string | null
+  /** Position in the user's own importance order (0 = most important). null = not ordered yet. */
+  priorityOrder: number | null
   createdAt: string
   updatedAt: string
 }

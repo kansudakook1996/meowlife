@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatThaiDate, formatThaiMonth } from '@shared/dates'
 import { formatSatang, sumSatang } from '@shared/money'
 import type { StatusFilter } from '@shared/schemas'
@@ -6,11 +6,27 @@ import type { TransactionView } from '@shared/types'
 import { EmptyState } from '../components/EmptyState'
 import { MonthPicker } from '../components/MonthPicker'
 import { TransactionRow } from '../components/TransactionRow'
+import { errorMessage } from '../lib/api'
 import { meow, unwrap } from '../lib/api'
 import { usePortal } from '../lib/portal'
 import { useLoad } from '../lib/useLoad'
 
 type KindFilter = 'all' | 'income' | 'expense'
+type SortMode = 'date' | 'priority'
+const SORT_KEY = 'meowlife.ledgerSort'
+
+function loadSortMode(): SortMode {
+  try {
+    return localStorage.getItem(SORT_KEY) === 'priority' ? 'priority' : 'date'
+  } catch {
+    return 'date'
+  }
+}
+
+/** Importance order: the user's own order first (0 = most important), items never ordered after, newest first. */
+function byPriority(items: TransactionView[]): TransactionView[] {
+  return [...items].sort((a, b) => (a.priorityOrder ?? Number.MAX_SAFE_INTEGER) - (b.priorityOrder ?? Number.MAX_SAFE_INTEGER) || b.txnDate.localeCompare(a.txnDate) || b.createdAt.localeCompare(a.createdAt))
+}
 
 const STATUS_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'all', label: 'ทุกสถานะ' },
@@ -31,7 +47,9 @@ function groupByDate(items: TransactionView[]): Array<[string, TransactionView[]
 }
 
 export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { searchFocusSignal: number; initialSearch?: string }): React.JSX.Element {
-  const { month, setMonth, dataVersion, openEditor, categories } = usePortal()
+  const { month, setMonth, dataVersion, openEditor, categories, refresh, toast } = usePortal()
+  const [sortMode, setSortModeState] = useState<SortMode>(loadSortMode)
+  const [dragId, setDragId] = useState<string | null>(null)
   const [kind, setKind] = useState<KindFilter>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [categoryId, setCategoryId] = useState('')
@@ -45,9 +63,44 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
   const query = { month, kind, status, search: search.trim(), categoryId: categoryId || null }
   const { data, error } = useLoad(`${JSON.stringify(query)}:${dataVersion}`, () => unwrap(meow().transactions.list(query)))
 
+  const setSortMode = (mode: SortMode): void => {
+    setSortModeState(mode)
+    try {
+      localStorage.setItem(SORT_KEY, mode)
+    } catch {
+      /* remembering the choice is a convenience only */
+    }
+  }
+  const ordered = useMemo(() => (data ? byPriority(data) : []), [data])
+
   const filtered = kind !== 'all' || status !== 'all' || categoryId !== '' || search.trim() !== ''
   const income = data ? sumSatang(data.filter((t) => t.kind === 'income').map((t) => t.amountSatang)) : 0
   const expense = data ? sumSatang(data.filter((t) => t.kind === 'expense').map((t) => t.amountSatang)) : 0
+
+  const canReorder = sortMode === 'priority' && !filtered
+  const saveOrder = async (ids: string[]): Promise<void> => {
+    try {
+      await unwrap(meow().portal.ledger.reorder(ids))
+      refresh()
+    } catch (e) {
+      toast(errorMessage(e), { tone: 'error' })
+    }
+  }
+  const moveBy = (id: string, delta: number): void => {
+    const ids = ordered.map((t) => t.id)
+    const from = ids.indexOf(id)
+    const to = from + delta
+    if (from < 0 || to < 0 || to >= ids.length) return
+    ;[ids[from], ids[to]] = [ids[to]!, ids[from]!]
+    void saveOrder(ids)
+  }
+  const dropOn = (targetId: string): void => {
+    if (!dragId || dragId === targetId) return
+    const ids = ordered.map((t) => t.id).filter((id) => id !== dragId)
+    ids.splice(ids.indexOf(targetId), 0, dragId)
+    setDragId(null)
+    void saveOrder(ids)
+  }
 
   return (
     <div className="page">
@@ -77,6 +130,10 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
               {label}
             </button>
           ))}
+        </div>
+        <div className="segmented" role="group" aria-label="การเรียงลำดับ">
+          <button type="button" aria-pressed={sortMode === 'date'} onClick={() => setSortMode('date')}>เรียงตามวันที่</button>
+          <button type="button" aria-pressed={sortMode === 'priority'} onClick={() => setSortMode('priority')}>เรียงตามความสำคัญ</button>
         </div>
         <label className="visually-hidden" htmlFor="filter-status">
           สถานะ
@@ -166,7 +223,26 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
         </div>
       )}
 
+      {data && sortMode === 'priority' && data.length > 0 && (
+        <>
+          <p className="muted small">
+            {canReorder ? 'จัดลำดับความสำคัญ: กด ▲ ▼ หรือลากรายการไปวาง (รายการบนสุด = สำคัญที่สุด) รายการใหม่จะไปอยู่ท้ายสุด' : 'ล้างตัวกรองก่อน ถึงจะจัดลำดับความสำคัญได้'}
+          </p>
+          <ul className="tx-list">
+            {ordered.map((t, i) => (
+              <TransactionRow
+                key={t.id}
+                item={t}
+                showDate
+                order={canReorder ? { rank: i + 1, canUp: i > 0, canDown: i < ordered.length - 1, onUp: () => moveBy(t.id, -1), onDown: () => moveBy(t.id, 1), dragging: dragId === t.id, onDragStart: () => setDragId(t.id), onDragEnd: () => setDragId(null), onDrop: () => dropOn(t.id) } : undefined}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+
       {data &&
+        sortMode === 'date' &&
         groupByDate(data).map(([date, items]) => (
           <section key={date} className="date-group" aria-label={formatThaiDate(date)}>
             <h3 className="date-heading">{formatThaiDate(date)}</h3>

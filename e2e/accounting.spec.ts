@@ -107,3 +107,34 @@ test('recurring bill is generated for the month', async () => {
   await expect(page.getByText('ค่าเช่าห้อง')).toBeVisible()
   await app.close()
 })
+
+test('ledger items can be put in order of importance; the order survives a restart', async () => {
+  let { app, page } = await launch()
+  await page.getByRole('button', { name: 'รายการรับ-จ่าย' }).click()
+  await page.getByRole('button', { name: 'เรียงตามความสำคัญ' }).click()
+  const rows = page.locator('li.tx-row')
+  await expect(rows).toHaveCount(3)
+
+  // move the salary all the way to the top (retry until the ▲ button has become disabled)
+  const up = page.getByRole('button', { name: 'เลื่อน เงินเดือน ขึ้น' })
+  await expect(async () => {
+    if (await up.isEnabled()) await up.click()
+    await expect(up).toBeDisabled({ timeout: 800 })
+  }).toPass()
+  await expect(rows.first()).toContainText('เงินเดือน')
+  await page.screenshot({ path: 'test-results/21-ledger-priority.png' })
+
+  // and one step down again with the ▼ button
+  await page.getByRole('button', { name: 'เลื่อน เงินเดือน ลง' }).click()
+  await expect(rows.nth(1)).toContainText('เงินเดือน')
+  await page.getByRole('button', { name: 'เลื่อน เงินเดือน ขึ้น' }).click()
+  await expect(rows.first()).toContainText('เงินเดือน')
+
+  await app.close()
+  ;({ app, page } = await launch())
+  await page.getByRole('button', { name: 'รายการรับ-จ่าย' }).click()
+  await expect(page.locator('li.tx-row').first()).toContainText('เงินเดือน') // the chosen view and order were remembered
+  await page.getByRole('button', { name: 'เรียงตามวันที่' }).click()
+  await expect(page.locator('.date-group').first()).toBeVisible()
+  await app.close()
+})

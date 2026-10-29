@@ -301,5 +301,12 @@ export function billTitle(cardName: string, month: string, formatMonth: (m: stri
   return `ชำระบัตร ${cardName} (${formatMonth(month)})`
 }
 
+/** Result of marking a statement's bill paid / unpaid. */
+export interface SetCardPaidResult {
+  isPaid: boolean
+  transactionId: string
+  amountSatang: number
+}
+
 /** Result of putting a statement into the ledger as a bill. */
 export type CreateBillResult = { action: 'created' | 'updated' | 'paid'; transactionId: string; amountSatang: number }
