@@ -3,9 +3,11 @@ rules_version = '2';
 // MeowLife Firestore Security Rules. Paste into Firebase console → Firestore → Rules → Publish.
 // Tested against the emulator: `npm run test:rules` (rules-test/). The in-app "ทดสอบการเชื่อมต่อ" button checks they are live.
 //
-// 1) Only the owner (request.auth.uid == {uid}) can touch users/{uid}/... — nobody else, not even signed-in users.
-// 2) Documents must have exactly the fields the app writes, with the right types and lengths
-//    (Firestore rules cannot measure bytes, so every field is bounded instead).
+// Relaxed on purpose (v0.4.1): publish ONCE, and new kinds of data (new collections) work without touching the rules again.
+//   1) Only the owner (request.auth.uid == {uid}) can touch users/{uid}/... — nobody else, not even signed-in users.
+//   2) Any collection under the owner's own space is allowed, as long as each document carries its own id
+//      (matching the path) and a text updatedAt, and has a sane number of fields.
+// The app itself still validates every field with zod before saving locally; this is a personal, single-owner database.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -13,196 +15,15 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    function str(v, max) {
-      return v is string && v.size() >= 1 && v.size() <= max;
-    }
-    function strOrEmpty(v, max) {
-      return v is string && v.size() <= max;
-    }
-    function strOrNull(v, max) {
-      return v == null || str(v, max);
-    }
-    function whole(v, lo, hi) {
-      return v is int && v >= lo && v <= hi;
-    }
-    function stamp(v) {
-      return v is string && v.size() >= 20 && v.size() <= 40;
-    }
-    function kind(v) {
-      return v == 'income' || v == 'expense';
+    function wellFormed(d, docId) {
+      return d.id == docId
+        && d.updatedAt is string && d.updatedAt.size() >= 20 && d.updatedAt.size() <= 40
+        && d.keys().size() <= 40;
     }
 
-    function validCategory(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'kind', 'name', 'icon', 'sortOrder'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && kind(d.kind) && str(d.name, 40) && str(d.icon, 8) && whole(d.sortOrder, 0, 100000);
-    }
-
-    function validPaymentMethod(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'name', 'sortOrder'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.name, 40) && whole(d.sortOrder, 0, 100000);
-    }
-
-    function validRecurring(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'kind', 'title', 'amountSatang', 'categoryId',
-                  'paymentMethodId', 'dayOfMonth', 'startMonth', 'endMonth', 'note', 'isActive'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && kind(d.kind) && str(d.title, 80) && whole(d.amountSatang, 1, 99999999999)
-        && strOrNull(d.categoryId, 64) && strOrNull(d.paymentMethodId, 64)
-        && whole(d.dayOfMonth, 1, 31) && str(d.startMonth, 7) && strOrNull(d.endMonth, 7)
-        && strOrEmpty(d.note, 500) && whole(d.isActive, 0, 1);
-    }
-
-    function validTransaction(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'kind', 'title', 'amountSatang', 'categoryId',
-                  'paymentMethodId', 'txnDate', 'dueDate', 'isPaid', 'paidDate', 'note', 'recurringRuleId', 'recurringPeriod'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && kind(d.kind) && str(d.title, 80) && whole(d.amountSatang, 1, 99999999999)
-        && strOrNull(d.categoryId, 64) && strOrNull(d.paymentMethodId, 64)
-        && str(d.txnDate, 10) && strOrNull(d.dueDate, 10) && whole(d.isPaid, 0, 1) && strOrNull(d.paidDate, 10)
-        && strOrEmpty(d.note, 500) && strOrNull(d.recurringRuleId, 64) && strOrNull(d.recurringPeriod, 7);
-    }
-
-    // ---- Personal Portal ----
-    function validTask(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'title', 'note', 'dueDate', 'repeat', 'isDone', 'doneDate'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.title, 80) && strOrEmpty(d.note, 500) && strOrNull(d.dueDate, 10)
-        && d.repeat in ['none', 'daily', 'weekly', 'monthly'] && whole(d.isDone, 0, 1) && strOrNull(d.doneDate, 10);
-    }
-
-    function validJournal(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'entryDate', 'mood', 'body'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.entryDate, 10) && whole(d.mood, 1, 5) && strOrEmpty(d.body, 5000);
-    }
-
-    function validGoal(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'title', 'kind', 'targetSatang', 'savedSatang', 'progress',
-                  'targetDate', 'note', 'isDone', 'doneDate'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.title, 80) && d.kind in ['life', 'saving']
-        && (d.targetSatang == null || whole(d.targetSatang, 1, 99999999999)) && whole(d.savedSatang, 0, 99999999999)
-        && whole(d.progress, 0, 100) && strOrNull(d.targetDate, 10) && strOrEmpty(d.note, 500)
-        && whole(d.isDone, 0, 1) && strOrNull(d.doneDate, 10);
-    }
-
-    function validHabit(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'name', 'icon', 'sortOrder'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.name, 40) && str(d.icon, 8) && whole(d.sortOrder, 0, 100000);
-    }
-
-    function validHabitCheck(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'habitId', 'checkDate'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.habitId, 64) && str(d.checkDate, 10);
-    }
-
-    function validNote(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'title', 'body', 'isPinned'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.title, 80) && strOrEmpty(d.body, 5000) && whole(d.isPinned, 0, 1);
-    }
-
-    // ---- Credit cards ----
-    function validCard(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'name', 'issuer', 'statementDay', 'dueDay', 'limitSatang', 'isActive', 'sortOrder'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.name, 40) && strOrEmpty(d.issuer, 40) && whole(d.statementDay, 1, 31) && whole(d.dueDay, 1, 31)
-        && (d.limitSatang == null || whole(d.limitSatang, 1, 99999999999)) && whole(d.isActive, 0, 1) && whole(d.sortOrder, 0, 100000);
-    }
-
-    function validCardCharge(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'cardId', 'chargeDate', 'title', 'category', 'amountSatang', 'note', 'billMonth'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.cardId, 64) && str(d.chargeDate, 10) && str(d.title, 80) && strOrEmpty(d.category, 40)
-        && whole(d.amountSatang, 1, 99999999999) && strOrEmpty(d.note, 500) && str(d.billMonth, 7);
-    }
-
-    function validCardPlan(d, docId) {
-      let keys = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'cardId', 'title', 'totalMonths', 'monthlySatang', 'startMonth', 'note'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.createdAt) && stamp(d.updatedAt) && (d.deletedAt == null || stamp(d.deletedAt))
-        && str(d.cardId, 64) && str(d.title, 80) && whole(d.totalMonths, 2, 120)
-        && whole(d.monthlySatang, 1, 99999999999) && str(d.startMonth, 7) && strOrEmpty(d.note, 500);
-    }
-
-    // Written by the in-app connection test button.
-    function validMeta(d, docId) {
-      let keys = ['id', 'updatedAt', 'kind'];
-      return d.keys().hasAll(keys) && d.keys().hasOnly(keys)
-        && d.id == docId && stamp(d.updatedAt) && str(d.kind, 40);
-    }
-
-    match /users/{uid}/categories/{docId} {
+    match /users/{uid}/{collection}/{docId} {
       allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validCategory(request.resource.data, docId);
-    }
-    match /users/{uid}/payment_methods/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validPaymentMethod(request.resource.data, docId);
-    }
-    match /users/{uid}/recurring_rules/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validRecurring(request.resource.data, docId);
-    }
-    match /users/{uid}/transactions/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validTransaction(request.resource.data, docId);
-    }
-    match /users/{uid}/tasks/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validTask(request.resource.data, docId);
-    }
-    match /users/{uid}/journal_entries/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validJournal(request.resource.data, docId);
-    }
-    match /users/{uid}/goals/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validGoal(request.resource.data, docId);
-    }
-    match /users/{uid}/habits/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validHabit(request.resource.data, docId);
-    }
-    match /users/{uid}/habit_checks/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validHabitCheck(request.resource.data, docId);
-    }
-    match /users/{uid}/notes/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validNote(request.resource.data, docId);
-    }
-    match /users/{uid}/credit_cards/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validCard(request.resource.data, docId);
-    }
-    match /users/{uid}/card_charges/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validCardCharge(request.resource.data, docId);
-    }
-    match /users/{uid}/card_plans/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validCardPlan(request.resource.data, docId);
-    }
-    match /users/{uid}/meta/{docId} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validMeta(request.resource.data, docId);
+      allow create, update: if isOwner(uid) && wellFormed(request.resource.data, docId);
     }
 
     // Everything else is closed.

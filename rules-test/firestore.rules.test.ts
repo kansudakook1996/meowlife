@@ -133,56 +133,27 @@ describe('other users and strangers', () => {
     await assertFails(setDoc(doc(anon, 'users', ALICE, 'transactions', 't9'), validTx('t9')))
   })
 
-  it('has no way in outside users/{uid}/<known collection>', async () => {
+  it('has no way in outside users/{uid}/<collection>/<doc>', async () => {
     const alice = as(ALICE)
     await assertFails(setDoc(doc(alice, 'public', 'x'), { a: 1 }))
     await assertFails(getDoc(doc(alice, 'users', ALICE)))
     await assertFails(setDoc(doc(alice, 'users', ALICE), { a: 1 }))
-    await assertFails(setDoc(doc(alice, 'users', ALICE, 'secrets', 'x'), validTx('x')))
   })
 })
 
-describe('Credit card documents', () => {
+describe('relaxed rules: new kinds of data need no rule changes', () => {
   const put = (table: string, d: Record<string, unknown>): Promise<void> => setDoc(doc(as(ALICE), 'users', ALICE, table, String(d['id'])), d)
   const docOf = (table: string): Record<string, unknown> => appDocs().find((x) => x.table === table)!.doc
 
-  it('accepts what the app writes and rejects bad values', async () => {
-    await assertSucceeds(put('credit_cards', docOf('credit_cards')))
-    await assertSucceeds(put('card_charges', docOf('card_charges')))
-    await assertSucceeds(put('card_plans', docOf('card_plans')))
-    await assertFails(put('credit_cards', { ...docOf('credit_cards'), statementDay: 32 }))
-    await assertFails(put('card_charges', { ...docOf('card_charges'), amountSatang: 0 }))
-    await assertFails(put('card_plans', { ...docOf('card_plans'), totalMonths: 1 }))
-    await assertFails(put('card_plans', { ...docOf('card_plans'), extra: 'x' }))
+  it('accepts a brand-new collection the rules have never heard of', async () => {
+    await assertSucceeds(put('some_future_table', { id: 'f1', updatedAt: '2026-10-29T10:00:00.000Z', anything: 'goes' }))
   })
 
-  it('keeps card data private', async () => {
+  it('keeps card and portal data private to the owner', async () => {
     await assertSucceeds(put('credit_cards', docOf('credit_cards')))
+    await assertSucceeds(put('notes', docOf('notes')))
     await assertFails(getDoc(doc(as(BOB), 'users', ALICE, 'credit_cards', String(docOf('credit_cards')['id']))))
-  })
-})
-
-describe('Portal documents', () => {
-  const taskDoc = (): Record<string, unknown> => appDocs().find((x) => x.table === 'tasks')!.doc
-  const noteDoc = (): Record<string, unknown> => appDocs().find((x) => x.table === 'notes')!.doc
-  const put = (table: string, d: Record<string, unknown>): Promise<void> => setDoc(doc(as(ALICE), 'users', ALICE, table, String(d['id'])), d)
-
-  it('rejects bad values in tasks, notes and journal pages', async () => {
-    await assertSucceeds(put('tasks', taskDoc()))
-    await assertFails(put('tasks', { ...taskDoc(), repeat: 'yearly' }))
-    await assertFails(put('tasks', { ...taskDoc(), title: 'ก'.repeat(81) }))
-    await assertFails(put('notes', { ...noteDoc(), body: 'x'.repeat(5001) }))
-    await assertSucceeds(put('notes', { ...noteDoc(), body: 'x'.repeat(5000) }))
-    const j = appDocs().find((x) => x.table === 'journal_entries')!.doc
-    await assertFails(put('journal_entries', { ...j, mood: 6 }))
-    await assertFails(put('journal_entries', { ...j, extra: 1 }))
-  })
-
-  it("keeps Portal data private too", async () => {
-    await assertSucceeds(put('notes', noteDoc()))
-    const bob = as(BOB)
-    await assertFails(getDoc(doc(bob, 'users', ALICE, 'notes', String(noteDoc()['id']))))
-    await assertFails(setDoc(doc(bob, 'users', ALICE, 'tasks', String(taskDoc()['id'])), taskDoc()))
+    await assertFails(setDoc(doc(as(BOB), 'users', ALICE, 'notes', String(docOf('notes')['id'])), docOf('notes')))
   })
 })
 
@@ -197,25 +168,9 @@ describe('document shape', () => {
     await assertFails(write('t7', withoutStamp))
   })
 
-  it('rejects unknown fields and missing fields', async () => {
-    await assertFails(write('t8', validTx('t8', { evil: 'x' })))
-    const withoutNote = validTx('t9')
-    delete withoutNote['note']
-    await assertFails(write('t9', withoutNote))
-  })
-
-  it('rejects wrong types and out-of-range values', async () => {
-    await assertFails(write('t10', validTx('t10', { amountSatang: '1000' })))
-    await assertFails(write('t11', validTx('t11', { amountSatang: 0 })))
-    await assertFails(write('t12', validTx('t12', { amountSatang: 1.5 })))
-    await assertFails(write('t13', validTx('t13', { kind: 'transfer' })))
-    await assertFails(write('t14', validTx('t14', { isPaid: true })))
-  })
-
-  it('bounds text size: long titles and notes are rejected (rules cannot measure bytes, so each field is capped)', async () => {
-    await assertFails(write('t15', validTx('t15', { title: 'ก'.repeat(81) })))
-    await assertFails(write('t16', validTx('t16', { note: 'x'.repeat(501) })))
-    await assertFails(write('t17', validTx('t17', { title: '' })))
-    await assertSucceeds(write('t18', validTx('t18', { title: 'ก'.repeat(80), note: 'x'.repeat(500) })))
+  it('rejects documents with an absurd number of fields', async () => {
+    const many: Record<string, unknown> = validTx('t8')
+    for (let i = 0; i < 45; i++) many['extra' + i] = i
+    await assertFails(write('t8', many))
   })
 })
