@@ -124,9 +124,12 @@ test('notes: create, pin, search, delete with undo', async () => {
   await dialog.getByLabel('เนื้อหา').fill('ทำสวนผัก')
   await dialog.getByRole('button', { name: 'บันทึก' }).click()
   await expect(page.getByRole('heading', { name: '📌 รายการซื้อของ' })).toBeVisible()
-  await page.getByLabel('ค้นหาโน้ต').fill('สวนผัก')
+  // typing right after the dialog closed has been seen to lose the text once on a slow CI machine, so type again until it sticks
+  await expect(async () => {
+    await page.getByLabel('ค้นหาโน้ต').fill('สวนผัก')
+    await expect(page.getByRole('heading', { name: /รายการซื้อของ/ })).toHaveCount(0, { timeout: 1500 })
+  }).toPass()
   await expect(page.getByRole('heading', { name: 'ไอเดีย' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /รายการซื้อของ/ })).toHaveCount(0)
   await page.getByLabel('ค้นหาโน้ต').fill('')
   await page.getByRole('button', { name: 'ลบ ไอเดีย' }).click()
   await page.getByRole('dialog').getByRole('button', { name: 'ลบ', exact: true }).click()
