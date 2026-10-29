@@ -57,7 +57,7 @@ test('set up a card, add a charge and an instalment plan, see the totals', async
   await page.getByRole('button', { name: '＋ เพิ่มยอด', exact: true }).click()
   await dialog.getByLabel('วันที่ใช้จ่าย').fill(`${month}-05`)
   await dialog.getByLabel('รายการ', { exact: true }).fill('ข้าวเที่ยง')
-  await dialog.getByRole('button', { name: 'อาหาร', exact: true }).click()
+  await dialog.getByLabel('หมวดหมู่').selectOption('อาหาร')
   await dialog.getByLabel('จำนวนเงิน (บาท)').fill('250')
   await dialog.getByRole('button', { name: 'บันทึก' }).click()
   await expect(page.getByText('ข้าวเที่ยง', { exact: true })).toBeVisible()
@@ -114,4 +114,30 @@ test('delete a charge with undo; dashboard shows the card summary', async () => 
   await expect(page.getByText(/ต้องจ่ายรวม/)).toBeVisible()
   await page.getByRole('button', { name: 'ดูรายละเอียด' }).click()
   await expect(page.getByRole('heading', { name: 'บัตรเครดิต', exact: true })).toBeVisible()
+})
+
+test('a monthly repeating charge on the card is added to the statement by itself, with a chosen category', async () => {
+  await expect(page.getByText(/ตั้งไว้ครั้งเดียว แอปจะใส่ยอดให้ทุกรอบบิลเอง/)).toBeVisible()
+  await page.getByRole('button', { name: '＋ เพิ่มรายการประจำ' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('รายการ', { exact: true }).fill('ค่าไฟรายเดือน')
+  await dialog.getByLabel('หมวดหมู่').selectOption('ค่าน้ำค่าไฟ')
+  await dialog.getByLabel('จำนวนเงินต่อเดือน (บาท)').fill('1,200')
+  await dialog.getByLabel('ตัดบัตรทุกวันที่').fill('1')
+  await dialog.getByLabel('เริ่มเดือน').fill(month)
+  await dialog.getByRole('button', { name: 'บันทึก' }).click()
+
+  await expect(page.getByText(/รายการประจำทุกเดือน \(1\)/)).toBeVisible()
+  // the month's charge appears in the statement without typing it again, and is filed under the chosen category
+  await expect(page.getByText('ค่าไฟรายเดือน')).toHaveCount(2) // the rule + this month's charge
+  await expect(page.getByText('ค่าน้ำค่าไฟ').first()).toBeVisible()
+  await expect(page.getByText('฿3,450.00').first()).toBeVisible() // 250 + 500 + 1,500 + 1,200
+  await page.screenshot({ path: 'test-results/18-cards-recurring.png', fullPage: true })
+
+  // deleting the generated charge sticks (it does not come back on reload)
+  await page.getByRole('button', { name: 'ลบ ค่าไฟรายเดือน' }).last().click()
+  await page.getByRole('dialog').getByRole('button', { name: 'ลบ', exact: true }).click()
+  await nav('ภาพรวม').click()
+  await nav('บัตรเครดิต').click()
+  await expect(page.getByText('ค่าไฟรายเดือน')).toHaveCount(1)
 })

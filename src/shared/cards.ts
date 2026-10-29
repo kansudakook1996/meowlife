@@ -43,6 +43,26 @@ export interface CardPlan {
   note: string
 }
 
+/**
+ * A charge that repeats every month on this card (electricity, a subscription …).
+ * The app creates the month's charge itself, so nothing has to be typed twice.
+ */
+export interface CardRecurring {
+  id: string
+  cardId: string
+  title: string
+  category: string
+  amountSatang: number
+  /** Day of month the charge is made (short months use the last day). */
+  dayOfMonth: number
+  /** First calendar month it is charged. */
+  startMonth: string
+  /** Last calendar month it is charged (null = keeps going). */
+  endMonth: string | null
+  note: string
+  isActive: boolean
+}
+
 /* ---------- inputs ---------- */
 
 const Name = z.string().trim().min(1, { error: 'กรุณาใส่ชื่อ' }).max(40, { error: 'ชื่อยาวเกิน 40 ตัวอักษร' })
@@ -78,6 +98,21 @@ export const PlanInputSchema = z.strictObject({
   note: z.string().trim().max(500)
 })
 export type PlanInput = z.infer<typeof PlanInputSchema>
+
+export const CardRecurringInputSchema = z
+  .strictObject({
+    cardId: z.uuid(),
+    title: z.string().trim().min(1, { error: 'กรุณาใส่ชื่อรายการ' }).max(80, { error: 'ชื่อรายการยาวเกิน 80 ตัวอักษร' }),
+    category: z.string().trim().max(40),
+    amountSatang: Money,
+    dayOfMonth: Day,
+    startMonth: MonthSchema,
+    endMonth: MonthSchema.nullable(),
+    note: z.string().trim().max(500),
+    isActive: z.boolean()
+  })
+  .refine((v) => v.endMonth === null || v.endMonth >= v.startMonth, { error: 'เดือนสิ้นสุดต้องไม่ก่อนเดือนเริ่ม', path: ['endMonth'] })
+export type CardRecurringInput = z.infer<typeof CardRecurringInputSchema>
 
 /** Suggestions shown as chips when adding a charge. */
 export const CHARGE_CATEGORIES = ['อาหาร', 'ของใช้', 'เดินทาง', 'ช้อปปิ้ง', 'สมาชิก/บริการ', 'สุขภาพ', 'บันเทิง', 'อื่น ๆ'] as const
@@ -144,6 +179,8 @@ export function planText(line: PlanLine, formatMonth: (m: string) => string): st
 export interface CardStatement {
   card: CreditCard
   month: string
+  /** The card's monthly repeating charges (all of them, for the management list). */
+  recurring: CardRecurring[]
   statementDate: string
   dueDate: string
   charges: CardCharge[]
@@ -158,7 +195,13 @@ export interface CardStatement {
   futureInstallmentsTotal: number
 }
 
-export function buildStatement(card: CreditCard, charges: CardCharge[], plans: CardPlan[], month: string): CardStatement {
+export function buildStatement(
+  card: CreditCard,
+  charges: CardCharge[],
+  plans: CardPlan[],
+  month: string,
+  recurring: CardRecurring[] = []
+): CardStatement {
   const mine = charges.filter((c) => c.cardId === card.id && c.billMonth === month).sort((a, b) => a.chargeDate.localeCompare(b.chargeDate))
   const lines = plans.filter((p) => p.cardId === card.id).map((p) => planLine(p, month))
   const installments = lines.filter((l) => l.state === 'active')
@@ -167,6 +210,7 @@ export function buildStatement(card: CreditCard, charges: CardCharge[], plans: C
   return {
     card,
     month,
+    recurring: recurring.filter((r) => r.cardId === card.id),
     statementDate: statementDateFor(month, card.statementDay),
     dueDate: dueDateFor(month, card.statementDay, card.dueDay),
     charges: mine,

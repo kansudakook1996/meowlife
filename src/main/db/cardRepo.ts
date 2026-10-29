@@ -7,6 +7,8 @@ import {
   type CardBillInfo,
   type CardCharge,
   type CardInput,
+  type CardRecurring,
+  type CardRecurringInput,
   type ChargeInput,
   type CardPlan,
   type CardsOverview,
@@ -14,7 +16,8 @@ import {
   type CreditCard,
   type PlanInput
 } from '@shared/cards'
-import { formatThaiMonth } from '@shared/dates'
+import { addMonths, formatThaiMonth, recurringDateFor } from '@shared/dates'
+import { GENERATED_UPDATED_AT } from '@shared/syncModel'
 import { NotFoundError } from './catalogRepo'
 import { inTransaction, nowIso, type Db } from './connection'
 import { DEFAULT_CATEGORIES } from './defaults'
@@ -57,6 +60,19 @@ const toPlan = (r: Row): CardPlan => ({
   monthlySatang: r['monthly_satang'] as number,
   startMonth: r['start_month'] as string,
   note: r['note'] as string
+})
+
+const toRecurring = (r: Row): CardRecurring => ({
+  id: r['id'] as string,
+  cardId: r['card_id'] as string,
+  title: r['title'] as string,
+  category: r['category'] as string,
+  amountSatang: r['amount_satang'] as number,
+  dayOfMonth: r['day_of_month'] as number,
+  startMonth: r['start_month'] as string,
+  endMonth: r['end_month'] as string | null,
+  note: r['note'] as string,
+  isActive: r['is_active'] === 1
 })
 
 /* ---------- cards ---------- */
@@ -153,6 +169,81 @@ export function updatePlan(db: Db, id: string, input: PlanInput): CardPlan {
   return toPlan(one(db, 'SELECT * FROM card_plans WHERE id = ?', id) as Row)
 }
 
+/* ---------- monthly repeating charges ---------- */
+
+export function listCardRecurring(db: Db): CardRecurring[] {
+  return all(db, 'SELECT * FROM card_recurring WHERE deleted_at IS NULL ORDER BY day_of_month, created_at').map(toRecurring)
+}
+
+export function createCardRecurring(db: Db, input: CardRecurringInput): CardRecurring {
+  getCard(db, input.cardId)
+  const id = randomUUID()
+  const now = nowIso()
+  db.prepare(
+    `INSERT INTO card_recurring (id, card_id, title, category, amount_satang, day_of_month, start_month, end_month, note, is_active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, input.cardId, input.title, input.category, input.amountSatang, input.dayOfMonth, input.startMonth, input.endMonth, input.note, input.isActive ? 1 : 0, now, now)
+  return toRecurring(one(db, 'SELECT * FROM card_recurring WHERE id = ?', id) as Row)
+}
+
+/** Changing a rule affects the months that have not been created yet; charges already made stay as they are (edit them one by one). */
+export function updateCardRecurring(db: Db, id: string, input: CardRecurringInput): CardRecurring {
+  getCard(db, input.cardId)
+  const r = db
+    .prepare(
+      `UPDATE card_recurring SET card_id = ?, title = ?, category = ?, amount_satang = ?, day_of_month = ?, start_month = ?, end_month = ?,
+         note = ?, is_active = ?, updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL`
+    )
+    .run(input.cardId, input.title, input.category, input.amountSatang, input.dayOfMonth, input.startMonth, input.endMonth, input.note, input.isActive ? 1 : 0, nowIso(), id)
+  if (r.changes === 0) throw new NotFoundError('ไม่พบรายการประจำนี้')
+  return toRecurring(one(db, 'SELECT * FROM card_recurring WHERE id = ?', id) as Row)
+}
+
+/** Same id on every device for "the charge of repeating rule R in calendar month M". Key must never change. */
+export const recurringChargeId = (ruleId: string, month: string): string => deterministicId(`cardrec:${ruleId}:${month}`)
+
+/**
+ * Create the charges of every active repeating rule for one calendar month. Safe to call again and again:
+ * the id is fixed, so a charge that exists (or that the user deleted) is never created a second time, and a
+ * generated charge always loses to a real edit made on another device.
+ */
+export function ensureCardRecurringForMonth(db: Db, month: string): number {
+  const rules = all(
+    db,
+    `SELECT r.* FROM card_recurring r JOIN credit_cards c ON c.id = r.card_id AND c.deleted_at IS NULL
+     WHERE r.deleted_at IS NULL AND r.is_active = 1 AND r.start_month <= ? AND (r.end_month IS NULL OR r.end_month >= ?)`,
+    month,
+    month
+  ).map(toRecurring)
+  if (rules.length === 0) return 0
+  const statementDays = new Map(listCards(db).map((c) => [c.id, c.statementDay]))
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO card_charges (id, card_id, charge_date, title, category, amount_satang, note, bill_month, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  )
+  return inTransaction(db, () => {
+    let created = 0
+    const now = nowIso()
+    for (const r of rules) {
+      const date = recurringDateFor(month, r.dayOfMonth)
+      const result = insert.run(
+        recurringChargeId(r.id, month),
+        r.cardId,
+        date,
+        r.title,
+        r.category,
+        r.amountSatang,
+        r.note,
+        billMonthFor(date, statementDays.get(r.cardId) ?? 25),
+        now,
+        GENERATED_UPDATED_AT
+      )
+      created += Number(result.changes)
+    }
+    return created
+  })
+}
+
 /* ---------- monthly overview ---------- */
 
 /** Same id on every device for "the bill of card X for statement month M". Key must never change. */
@@ -167,12 +258,16 @@ function billInfo(db: Db, cardId: string, month: string, today: string): CardBil
 }
 
 export function cardsOverview(db: Db, month: string, today: string): CardsOverview {
+  // A statement holds purchases from the previous calendar month and this one, so create both months' repeating charges first.
+  ensureCardRecurringForMonth(db, addMonths(month, -1))
+  ensureCardRecurringForMonth(db, month)
   const cards = listCards(db).filter((c) => c.isActive)
+  const recurring = listCardRecurring(db)
   const charges = all(db, 'SELECT * FROM card_charges WHERE deleted_at IS NULL AND bill_month = ?', month).map(toCharge)
   const plans = all(db, 'SELECT * FROM card_plans WHERE deleted_at IS NULL').map(toPlan)
   return overviewOf(
     month,
-    cards.map((card) => ({ ...buildStatement(card, charges, plans, month), bill: billInfo(db, card.id, month, today) })),
+    cards.map((card) => ({ ...buildStatement(card, charges, plans, month, recurring), bill: billInfo(db, card.id, month, today) })),
     today
   )
 }

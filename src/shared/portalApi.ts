@@ -1,5 +1,5 @@
 import type { CalendarEvent } from './calendar'
-import type { CardCharge, CardInput, CardPlan, CardsOverview, ChargeInput, CreateBillResult, CreditCard, PlanInput } from './cards'
+import type { CardCharge, CardInput, CardPlan, CardRecurring, CardRecurringInput, CardsOverview, ChargeInput, CreateBillResult, CreditCard, PlanInput } from './cards'
 import type {
   AppSettings,
   Badge,
@@ -111,6 +111,12 @@ export interface PortalBridge {
     plans: {
       create(input: PlanInput): R<CardPlan>
       update(id: string, input: PlanInput): R<CardPlan>
+      remove(id: string): R<void>
+      restore(id: string): R<void>
+    }
+    recurring: {
+      create(input: CardRecurringInput): R<CardRecurring>
+      update(id: string, input: CardRecurringInput): R<CardRecurring>
       remove(id: string): R<void>
       restore(id: string): R<void>
     }

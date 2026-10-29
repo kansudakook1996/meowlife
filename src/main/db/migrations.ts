@@ -239,6 +239,28 @@ const migrations: Migration[] = [
         );
       `)
     }
+  },
+  {
+    version: 5,
+    up(db) {
+      // Monthly repeating charges of a credit card; the app creates each month's card_charges row from them.
+      db.exec(`
+        CREATE TABLE card_recurring (
+          id TEXT PRIMARY KEY,
+          card_id TEXT NOT NULL REFERENCES credit_cards(id),
+          title TEXT NOT NULL,
+          category TEXT NOT NULL DEFAULT '',
+          amount_satang INTEGER NOT NULL CHECK (amount_satang > 0),
+          day_of_month INTEGER NOT NULL CHECK (day_of_month BETWEEN 1 AND 31),
+          start_month TEXT NOT NULL,
+          end_month TEXT,
+          note TEXT NOT NULL DEFAULT '',
+          is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+          ${SYNC_COLUMNS},
+          base_updated_at TEXT
+        );
+      `)
+    }
   }
 ]
 

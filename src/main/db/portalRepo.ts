@@ -287,7 +287,7 @@ export function removeRow(db: Db, table: PortalTable, id: string): void {
       db.prepare(`UPDATE habit_checks SET deleted_at = ?, updated_at = ?, dirty = 1 WHERE habit_id = ? AND deleted_at IS NULL`).run(now, now, id)
     }
     if (table === 'credit_cards') {
-      for (const child of ['card_charges', 'card_plans']) {
+      for (const child of ['card_charges', 'card_plans', 'card_recurring']) {
         db.prepare(`UPDATE ${child} SET deleted_at = ?, updated_at = ?, dirty = 1 WHERE card_id = ? AND deleted_at IS NULL`).run(now, now, id)
       }
     }
@@ -305,7 +305,7 @@ export function restoreRow(db: Db, table: PortalTable, id: string): void {
       db.prepare(`UPDATE habit_checks SET deleted_at = NULL, updated_at = ?, dirty = 1 WHERE habit_id = ? AND deleted_at = ?`).run(now, id, deletedAt)
     }
     if (table === 'credit_cards') {
-      for (const child of ['card_charges', 'card_plans']) {
+      for (const child of ['card_charges', 'card_plans', 'card_recurring']) {
         db.prepare(`UPDATE ${child} SET deleted_at = NULL, updated_at = ?, dirty = 1 WHERE card_id = ? AND deleted_at = ?`).run(now, id, deletedAt)
       }
     }

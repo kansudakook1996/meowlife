@@ -117,7 +117,7 @@ export const NoteInputSchema = z.strictObject({
 export type NoteInput = z.infer<typeof NoteInputSchema>
 
 /** Tables managed by the generic create/update/remove channels, and the schema that guards each. */
-export const PORTAL_TABLES = ['tasks', 'journal_entries', 'goals', 'habits', 'notes', 'credit_cards', 'card_charges', 'card_plans'] as const
+export const PORTAL_TABLES = ['tasks', 'journal_entries', 'goals', 'habits', 'notes', 'credit_cards', 'card_charges', 'card_plans', 'card_recurring'] as const
 export type PortalTable = (typeof PORTAL_TABLES)[number]
 
 /* ---------- settings ---------- */

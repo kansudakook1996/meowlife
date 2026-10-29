@@ -16,7 +16,8 @@ export const SYNC_TABLES = [
   'notes',
   'credit_cards',
   'card_charges',
-  'card_plans'
+  'card_plans',
+  'card_recurring'
 ] as const
 export type SyncTable = (typeof SYNC_TABLES)[number]
 
@@ -71,7 +72,8 @@ export const TABLE_COLUMNS: Record<SyncTable, readonly string[]> = {
   notes: [...COMMON, 'title', 'body', 'is_pinned'],
   credit_cards: [...COMMON, 'name', 'issuer', 'statement_day', 'due_day', 'limit_satang', 'is_active', 'sort_order'],
   card_charges: [...COMMON, 'card_id', 'charge_date', 'title', 'category', 'amount_satang', 'note', 'bill_month'],
-  card_plans: [...COMMON, 'card_id', 'title', 'total_months', 'monthly_satang', 'start_month', 'note']
+  card_plans: [...COMMON, 'card_id', 'title', 'total_months', 'monthly_satang', 'start_month', 'note'],
+  card_recurring: [...COMMON, 'card_id', 'title', 'category', 'amount_satang', 'day_of_month', 'start_month', 'end_month', 'note', 'is_active']
 }
 
 const toCamel = (s: string): string => s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
@@ -217,6 +219,18 @@ export const DOC_SCHEMAS: Record<SyncTable, z.ZodType<SyncDoc>> = {
     monthlySatang: Amount,
     startMonth: MonthSchema,
     note: z.string().max(500)
+  }) as unknown as z.ZodType<SyncDoc>,
+  card_recurring: z.strictObject({
+    ...base,
+    cardId: IdSchema,
+    title: z.string().min(1).max(80),
+    category: z.string().max(40),
+    amountSatang: Amount,
+    dayOfMonth: z.number().int().min(1).max(31),
+    startMonth: MonthSchema,
+    endMonth: MonthSchema.nullable(),
+    note: z.string().max(500),
+    isActive: Int01
   }) as unknown as z.ZodType<SyncDoc>
 }
 

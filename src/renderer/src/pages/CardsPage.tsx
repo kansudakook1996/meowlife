@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { addDays, addMonths, formatThaiDate, formatThaiMonth, monthsBetween, todayIso } from '@shared/dates'
 import {
-  CHARGE_CATEGORIES,
   planText,
   statementDateFor,
   type CardCharge,
+  type CardRecurring,
   type CardStatementView,
   type CreditCard,
   type PlanLine
@@ -24,6 +24,7 @@ type Editing =
   | { type: 'card'; card: CreditCard | null }
   | { type: 'charge'; cardId: string | null; charge: CardCharge | null }
   | { type: 'plan'; cardId: string; line: PlanLine | null }
+  | { type: 'recurring'; cardId: string; rule: CardRecurring | null }
   | null
 
 export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: boolean }): React.JSX.Element {
@@ -33,6 +34,9 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
   const { data: allCards } = useLoad(`cards-all:${dataVersion}`, () => unwrap(meow().portal.cards.list()))
   const delCharge = useDeleteWithUndo((id) => unwrap(meow().portal.cards.charges.remove(id)), (id) => unwrap(meow().portal.cards.charges.restore(id)), refresh)
   const delPlan = useDeleteWithUndo((id) => unwrap(meow().portal.cards.plans.remove(id)), (id) => unwrap(meow().portal.cards.plans.restore(id)), refresh)
+  const { data: categories } = useLoad(`cards-cats:${dataVersion}`, () => unwrap(meow().categories.list()))
+  const categoryNames = (categories ?? []).filter((k) => k.kind === 'expense').map((k) => k.name)
+  const delRec = useDeleteWithUndo((id) => unwrap(meow().portal.cards.recurring.remove(id)), (id) => unwrap(meow().portal.cards.recurring.restore(id)), refresh)
   const delCard = useDeleteWithUndo((id) => unwrap(meow().portal.cards.remove(id)), (id) => unwrap(meow().portal.cards.restore(id)), refresh)
 
   const createBill = async (cardId: string): Promise<void> => {
@@ -132,6 +136,9 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
           onAddPlan={() => setEditing({ type: 'plan', cardId: s.card.id, line: null })}
           onEditPlan={(line) => setEditing({ type: 'plan', cardId: s.card.id, line })}
           onDeletePlan={(line) => void delPlan(line.plan.id, line.plan.title)}
+          onAddRecurring={() => setEditing({ type: 'recurring', cardId: s.card.id, rule: null })}
+          onEditRecurring={(rule) => setEditing({ type: 'recurring', cardId: s.card.id, rule })}
+          onDeleteRecurring={(rule) => void delRec(rule.id, rule.title)}
         />
       ))}
 
@@ -139,12 +146,15 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
         <p className="muted small">มีบัตรที่ปิดการใช้งานไว้ {allCards.filter((c) => !c.isActive).length} ใบ (ไม่แสดงในรอบบิล) — เปิดใช้ใหม่ได้ที่ "แก้ไขบัตร"</p>
       )}
 
-      <Modal open={editing !== null} title={editing?.type === 'card' ? (editing.card ? 'แก้ไขบัตร' : 'เพิ่มบัตรเครดิต') : editing?.type === 'charge' ? (editing.charge ? 'แก้ไขยอดใช้จ่าย' : 'เพิ่มยอดใช้จ่าย') : editing?.line ? 'แก้ไขรายการผ่อน' : 'เพิ่มรายการผ่อน'} onClose={() => setEditing(null)}>
+      <Modal open={editing !== null} title={editing?.type === 'card' ? (editing.card ? 'แก้ไขบัตร' : 'เพิ่มบัตรเครดิต') : editing?.type === 'charge' ? (editing.charge ? 'แก้ไขยอดใช้จ่าย' : 'เพิ่มยอดใช้จ่าย') : editing?.type === 'recurring' ? (editing.rule ? 'แก้ไขรายการประจำของบัตร' : 'เพิ่มรายการประจำของบัตร') : editing?.line ? 'แก้ไขรายการผ่อน' : 'เพิ่มรายการผ่อน'} onClose={() => setEditing(null)}>
         {editing?.type === 'card' && (
           <CardForm key={editing.card?.id ?? 'new'} initial={editing.card} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกบัตรแล้ว') }} />
         )}
         {editing?.type === 'charge' && allCards && (
-          <ChargeForm key={editing.charge?.id ?? `new-${editing.cardId}`} cards={allCards.filter((c) => c.isActive)} initialCardId={editing.cardId} initial={editing.charge} month={month} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกยอดใช้จ่ายแล้ว') }} />
+          <ChargeForm key={editing.charge?.id ?? `new-${editing.cardId}`} cards={allCards.filter((c) => c.isActive)} initialCardId={editing.cardId} initial={editing.charge} month={month} categoryNames={categoryNames} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกยอดใช้จ่ายแล้ว') }} />
+        )}
+        {editing?.type === 'recurring' && (
+          <RecurringForm key={editing.rule?.id ?? `new-${editing.cardId}`} cardId={editing.cardId} rule={editing.rule} categoryNames={categoryNames} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกรายการประจำแล้ว') }} />
         )}
         {editing?.type === 'plan' && (
           <PlanForm key={editing.line?.plan.id ?? `new-${editing.cardId}`} cardId={editing.cardId} line={editing.line} month={month} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกรายการผ่อนแล้ว') }} />
@@ -170,6 +180,9 @@ function CardSection(props: {
   onAddPlan: () => void
   onEditPlan: (l: PlanLine) => void
   onDeletePlan: (l: PlanLine) => void
+  onAddRecurring: () => void
+  onEditRecurring: (r: CardRecurring) => void
+  onDeleteRecurring: (r: CardRecurring) => void
 }): React.JSX.Element {
   const { s } = props
   const [showOld, setShowOld] = useState(false)
@@ -212,6 +225,34 @@ function CardSection(props: {
         <button type="button" className="btn btn-ghost" onClick={props.onEditCard}>แก้ไขบัตร</button>
         <button type="button" className="icon-btn" aria-label={`ลบบัตร ${s.card.name}`} title="ลบบัตร" onClick={props.onDeleteCard}>🗑️</button>
       </div>
+
+      <div className="card-title">
+        <h3>🔁 รายการประจำทุกเดือน ({s.recurring.length})</h3>
+        <button type="button" className="btn btn-secondary" onClick={props.onAddRecurring}>＋ เพิ่มรายการประจำ</button>
+      </div>
+      {s.recurring.length === 0 ? (
+        <p className="muted">ค่าไฟ ค่าบริการรายเดือน หรือสมาชิกที่ตัดบัตรทุกเดือน ตั้งไว้ครั้งเดียว แอปจะใส่ยอดให้ทุกรอบบิลเอง</p>
+      ) : (
+        <ul className="tx-list" style={{ marginBottom: 16 }}>
+          {s.recurring.map((r) => (
+            <li key={r.id} className="tx-row" style={{ gridTemplateColumns: 'minmax(0, 1fr) auto auto' }}>
+              <div className="tx-main">
+                <div className="tx-title">{r.title}{!r.isActive && <span className="badge badge-unpaid" style={{ marginLeft: 8 }}>หยุดไว้</span>}</div>
+                <div className="tx-meta">
+                  <span>ทุกวันที่ {r.dayOfMonth}</span>
+                  {r.category && <span className="badge badge-unpaid">{r.category}</span>}
+                  <span>{formatThaiMonth(r.startMonth)} ถึง {r.endMonth ? formatThaiMonth(r.endMonth) : 'ไม่กำหนดสิ้นสุด'}</span>
+                </div>
+              </div>
+              <span className="tx-amount expense">{formatSatang(r.amountSatang)}</span>
+              <span className="tx-actions">
+                <button type="button" className="icon-btn" aria-label={`แก้ไข ${r.title}`} title="แก้ไข" onClick={() => props.onEditRecurring(r)}>✏️</button>
+                <button type="button" className="icon-btn" aria-label={`ลบ ${r.title}`} title="ลบ" onClick={() => props.onDeleteRecurring(r)}>🗑️</button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       <div className="two-col">
         <div>
@@ -349,7 +390,7 @@ function CardForm(props: { initial: CreditCard | null; onCancel: () => void; onS
   )
 }
 
-function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; initial: CardCharge | null; month: string; onCancel: () => void; onSaved: () => void }): React.JSX.Element {
+function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; initial: CardCharge | null; month: string; categoryNames: string[]; onCancel: () => void; onSaved: () => void }): React.JSX.Element {
   const c = props.initial
   const [cardId, setCardId] = useState(c?.cardId ?? props.initialCardId ?? props.cards[0]?.id ?? '')
   const [date, setDate] = useState(c?.chargeDate ?? todayIso())
@@ -394,14 +435,7 @@ function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; 
         <label htmlFor="ch-title">รายการ</label>
         <input id="ch-title" className="input" autoFocus maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น ข้าวเที่ยง, ซื้อของใช้" />
       </div>
-      <div className="field">
-        <span className="field-label" id="ch-cat">หมวด</span>
-        <div className="segmented" role="group" aria-labelledby="ch-cat" style={{ flexWrap: 'wrap', borderRadius: 12 }}>
-          {CHARGE_CATEGORIES.map((k) => (
-            <button key={k} type="button" aria-pressed={category === k} onClick={() => setCategory(category === k ? '' : k)}>{k}</button>
-          ))}
-        </div>
-      </div>
+      <CategorySelect id="ch-cat" value={category} names={props.categoryNames} onChange={setCategory} />
       <div className="field">
         <label htmlFor="ch-amount">จำนวนเงิน (บาท)</label>
         <input id="ch-amount" className="input input-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
@@ -472,6 +506,88 @@ function PlanForm(props: { cardId: string; line: PlanLine | null; month: string;
       <p className="info" aria-live="polite">
         {valid ? `เริ่มงวดที่ 1 ในรอบบิล${formatThaiMonth(startMonth)} · ผ่อนหมดในรอบบิล${formatThaiMonth(endMonth)} (เหลืออีก ${totalN - currentN} งวดหลังเดือนนี้)` : 'กรอกจำนวนงวดและงวดปัจจุบันให้ถูกต้อง'}
       </p>
+      <div className="form-actions">
+        <button type="button" className="btn btn-secondary" onClick={props.onCancel}>ยกเลิก</button>
+        <button type="submit" className="btn btn-primary">บันทึก</button>
+      </div>
+    </form>
+  )
+}
+
+function CategorySelect(props: { id: string; value: string; names: string[]; onChange: (v: string) => void }): React.JSX.Element {
+  // Keep a value that is no longer in the category list (older entries) selectable instead of silently dropping it.
+  const names = props.value && !props.names.includes(props.value) ? [props.value, ...props.names] : props.names
+  return (
+    <div className="field">
+      <label htmlFor={props.id}>หมวดหมู่</label>
+      <select id={props.id} className="input" value={props.value} onChange={(e) => props.onChange(e.target.value)}>
+        <option value="">ไม่ระบุ</option>
+        {names.map((n) => <option key={n} value={n}>{n}</option>)}
+      </select>
+    </div>
+  )
+}
+
+function RecurringForm(props: { cardId: string; rule: CardRecurring | null; categoryNames: string[]; onCancel: () => void; onSaved: () => void }): React.JSX.Element {
+  const r = props.rule
+  const [title, setTitle] = useState(r?.title ?? '')
+  const [category, setCategory] = useState(r?.category ?? '')
+  const [amount, setAmount] = useState(r ? satangToInput(r.amountSatang) : '')
+  const [day, setDay] = useState(String(r?.dayOfMonth ?? 1))
+  const [startMonth, setStartMonth] = useState(r?.startMonth ?? todayIso().slice(0, 7))
+  const [endMonth, setEndMonth] = useState(r?.endMonth ?? '')
+  const [isActive, setIsActive] = useState(r?.isActive ?? true)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async (e: FormEvent): Promise<void> => {
+    e.preventDefault()
+    const amountSatang = parseBahtToSatang(amount)
+    const dayN = Number(day)
+    if (!title.trim()) return setError('ใส่ชื่อรายการก่อนนะ เช่น "ค่าไฟ", "Netflix"')
+    if (!amountSatang) return setError('ใส่จำนวนเงินที่มากกว่า 0 เช่น 1,200')
+    if (!Number.isInteger(dayN) || dayN < 1 || dayN > 31) return setError('วันที่ตัดบัตรต้องเป็นเลข 1–31')
+    if (!/^\d{4}-\d{2}$/.test(startMonth)) return setError('เลือกเดือนที่เริ่มด้วยนะ')
+    if (endMonth && endMonth < startMonth) return setError('เดือนสิ้นสุดต้องไม่ก่อนเดือนที่เริ่ม')
+    const input = { cardId: props.cardId, title: title.trim(), category, amountSatang, dayOfMonth: dayN, startMonth, endMonth: endMonth || null, note: r?.note ?? '', isActive }
+    try {
+      if (r) await unwrap(meow().portal.cards.recurring.update(r.id, input))
+      else await unwrap(meow().portal.cards.recurring.create(input))
+      props.onSaved()
+    } catch (err) {
+      setError(errorMessage(err))
+    }
+  }
+
+  return (
+    <form className="form" onSubmit={(e) => void submit(e)} noValidate>
+      {error && <div className="alert" role="alert">{error}</div>}
+      <div className="field">
+        <label htmlFor="rc-title">รายการ</label>
+        <input id="rc-title" className="input" autoFocus maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น ค่าไฟ, Netflix, ค่าอินเทอร์เน็ต" />
+      </div>
+      <CategorySelect id="rc-cat" value={category} names={props.categoryNames} onChange={setCategory} />
+      <div className="field-row">
+        <div className="field">
+          <label htmlFor="rc-amount">จำนวนเงินต่อเดือน (บาท)</label>
+          <input id="rc-amount" className="input input-amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+        </div>
+        <div className="field">
+          <label htmlFor="rc-day">ตัดบัตรทุกวันที่</label>
+          <input id="rc-day" type="number" min={1} max={31} className="input" value={day} onChange={(e) => setDay(e.target.value)} />
+        </div>
+      </div>
+      <div className="field-row">
+        <div className="field">
+          <label htmlFor="rc-start">เริ่มเดือน</label>
+          <input id="rc-start" type="month" className="input" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} />
+        </div>
+        <div className="field">
+          <label htmlFor="rc-end">สิ้นสุดเดือน (ไม่บังคับ)</label>
+          <input id="rc-end" type="month" className="input" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} />
+        </div>
+      </div>
+      <label className="check"><input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} /> ใช้งานอยู่ (ปิดไว้เพื่อหยุดสร้างยอดเดือนต่อ ๆ ไป)</label>
+      <p className="info">แอปใส่ยอดนี้ให้ทุกเดือนตามวันตัดรอบของบัตร การแก้ไขมีผลกับเดือนที่ยังไม่ถูกสร้าง ส่วนเดือนที่สร้างแล้วแก้ทีละรายการได้ในรายการยอดใช้จ่าย</p>
       <div className="form-actions">
         <button type="button" className="btn btn-secondary" onClick={props.onCancel}>ยกเลิก</button>
         <button type="submit" className="btn btn-primary">บันทึก</button>

@@ -12,8 +12,8 @@ import {
 } from '@shared/portalModel'
 import { IdSchema, IsoDateSchema, MonthSchema } from '@shared/schemas'
 import { MAX_SATANG } from '@shared/money'
-import { CardInputSchema, ChargeInputSchema, PlanInputSchema } from '@shared/cards'
-import { cardsOverview, createCard, createCardBill, createCharge, createPlan, listCards, updateCard, updateCharge, updatePlan } from '../db/cardRepo'
+import { CardInputSchema, CardRecurringInputSchema, ChargeInputSchema, PlanInputSchema } from '@shared/cards'
+import { cardsOverview, createCard, createCardBill, createCardRecurring, createCharge, createPlan, listCards, updateCard, updateCardRecurring, updateCharge, updatePlan } from '../db/cardRepo'
 import type { Db } from '../db/connection'
 import {
   activityInsights,
@@ -112,6 +112,10 @@ export function registerPortalHandlers(db: Db, onSettings: (s: AppSettings) => v
   handle(c('cards', 'plans.update'), Update(PlanInputSchema), ({ id, input }) => updatePlan(db, id, input))
   handle(c('cards', 'plans.remove'), IdSchema, (id) => removeRow(db, 'card_plans', id))
   handle(c('cards', 'plans.restore'), IdSchema, (id) => restoreRow(db, 'card_plans', id))
+  handle(c('cards', 'recurring.create'), CardRecurringInputSchema, (i) => createCardRecurring(db, i))
+  handle(c('cards', 'recurring.update'), Update(CardRecurringInputSchema), ({ id, input }) => updateCardRecurring(db, id, input))
+  handle(c('cards', 'recurring.remove'), IdSchema, (id) => removeRow(db, 'card_recurring', id))
+  handle(c('cards', 'recurring.restore'), IdSchema, (id) => restoreRow(db, 'card_recurring', id))
   handle(c('cards', 'createBill'), z.strictObject({ cardId: IdSchema, month: MonthSchema }), ({ cardId, month }) => createCardBill(db, cardId, month, today()))
   handle(c('calendar', 'range'), z.strictObject({ from: IsoDateSchema, to: IsoDateSchema }), ({ from, to }) =>
     calendarEvents(db, from, to, today())

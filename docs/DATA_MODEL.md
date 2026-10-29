@@ -125,6 +125,16 @@ Badge: คำนวณจากข้อมูลจริงทุกครั�
 | `card_charges` | card_id (FK), charge_date, title, category (ข้อความอิสระ), amount_satang, note, bill_month | `bill_month` คำนวณจากวันที่ซื้อ + วันตัดรอบของบัตร (เก็บไว้เพื่อ query/ซิงก์); เปลี่ยนวันตัดรอบ → จัดยอดเดิมเข้ารอบใหม่ให้ |
 | `card_plans` | card_id (FK), title, total_months (2–120), monthly_satang, start_month, note | `start_month` = รอบบิลของงวดที่ 1; งวดปัจจุบัน = เดือนที่ดูห่างจาก start_month + 1 |
 
+### `card_recurring` (migration 5) — รายการประจำของบัตร
+| ฟิลด์ | หมายเหตุ |
+|---|---|
+| card_id (FK), title, category (ข้อความ = ชื่อหมวดหมู่ของแอป ณ ตอนบันทึก), amount_satang, day_of_month (1–31) | |
+| start_month, end_month (null = ไม่สิ้นสุด), note, is_active | |
+
+- แอปสร้าง `card_charges` ของแต่ละเดือนให้ (`ensureCardRecurringForMonth`, เรียกตอนเปิดหน้ารอบบิล สำหรับเดือนก่อนหน้าและเดือนนั้น เพราะรอบบิลคร่อมสองเดือน)
+- id ของยอดที่สร้าง = `deterministicId("cardrec:<ruleId>:<YYYY-MM>")` (คีย์ห้ามเปลี่ยน) `updated_at = GENERATED_UPDATED_AT` (แพ้การแก้จริงจากเครื่องอื่น) `INSERT OR IGNORE` → ไม่ซ้ำ และยอดที่ผู้ใช้ลบ (soft delete) จะไม่ถูกสร้างกลับมา
+- แก้กฎมีผลกับเดือนที่ยังไม่ถูกสร้างเท่านั้น; ลบบัตร = ลบกฎและยอดพร้อมกัน (กู้คืนชุดเดียวกัน)
+
 กติกา (`src/shared/cards.ts`):
 - **รอบบิลของยอดซื้อ**: ซื้อ "ก่อนหรือตรงกับ" วันตัดรอบ → บิลเดือนนั้น, หลังวันตัดรอบ → บิลเดือนถัดไป (วันตัดรอบ 31 ในเดือนสั้นใช้วันสุดท้าย)
 - **วันครบกำหนด**: ถ้า `due_day > statement_day` → เดือนเดียวกับรอบบิล, ไม่งั้นเดือนถัดไป (ปรับเป็นวันสุดท้ายของเดือนสั้น)
