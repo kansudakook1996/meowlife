@@ -137,6 +137,7 @@ test('a monthly repeating charge on the card is added to the statement by itself
   // deleting the generated charge sticks (it does not come back on reload)
   await page.getByRole('button', { name: 'ลบ ค่าไฟรายเดือน' }).last().click()
   await page.getByRole('dialog').getByRole('button', { name: 'ลบ', exact: true }).click()
+  await expect(page.getByText('ค่าไฟรายเดือน')).toHaveCount(1) // wait until the delete has really finished before leaving the page
   await nav('ภาพรวม').click()
   await nav('บัตรเครดิต').click()
   await expect(page.getByText('ค่าไฟรายเดือน')).toHaveCount(1)
