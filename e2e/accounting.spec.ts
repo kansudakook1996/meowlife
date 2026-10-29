@@ -130,6 +130,22 @@ test('ledger items can be put in order of importance; the order survives a resta
   await page.getByRole('button', { name: 'เลื่อน เงินเดือน ขึ้น' }).click()
   await expect(rows.first()).toContainText('เงินเดือน')
 
+  // click a row and drag it with the mouse: take the last row up to the top
+  const lastTitle = (await rows.last().locator('.tx-title').innerText()).trim()
+  const grab = await rows.last().locator('.tx-title').boundingBox()
+  const target = await rows.first().boundingBox()
+  expect(grab && target).toBeTruthy()
+  await page.mouse.move(grab!.x + 10, grab!.y + grab!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(grab!.x + 10, (grab!.y + target!.y) / 2, { steps: 8 })
+  await page.mouse.move(grab!.x + 10, target!.y + 6, { steps: 8 })
+  await page.mouse.up()
+  await expect(rows.first()).toContainText(lastTitle)
+  await expect(rows.nth(1)).toContainText('เงินเดือน')
+  // put the salary back on top with the buttons so the rest of the test is unchanged
+  await page.getByRole('button', { name: 'เลื่อน เงินเดือน ขึ้น' }).click()
+  await expect(rows.first()).toContainText('เงินเดือน')
+
   await app.close()
   ;({ app, page } = await launch())
   await page.getByRole('button', { name: 'รายการรับ-จ่าย' }).click()

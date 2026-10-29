@@ -50,6 +50,8 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
   const { month, setMonth, dataVersion, openEditor, categories, refresh, toast } = usePortal()
   const [sortMode, setSortModeState] = useState<SortMode>(loadSortMode)
   const [dragId, setDragId] = useState<string | null>(null)
+  /** The order shown while a row is being dragged (the saved order only changes when it is dropped). */
+  const [liveIds, setLiveIds] = useState<string[] | null>(null)
   const [kind, setKind] = useState<KindFilter>('all')
   const [status, setStatus] = useState<StatusFilter>('all')
   const [categoryId, setCategoryId] = useState('')
@@ -71,7 +73,13 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
       /* remembering the choice is a convenience only */
     }
   }
-  const ordered = useMemo(() => (data ? byPriority(data) : []), [data])
+  const saved = useMemo(() => (data ? byPriority(data) : []), [data])
+  const ordered = useMemo(() => {
+    if (!liveIds) return saved
+    const byId = new Map(saved.map((t) => [t.id, t]))
+    const live = liveIds.map((id) => byId.get(id)).filter((t): t is TransactionView => t !== undefined)
+    return live.length === saved.length ? live : saved
+  }, [saved, liveIds])
 
   const filtered = kind !== 'all' || status !== 'all' || categoryId !== '' || search.trim() !== ''
   const income = data ? sumSatang(data.filter((t) => t.kind === 'income').map((t) => t.amountSatang)) : 0
@@ -94,14 +102,40 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
     ;[ids[from], ids[to]] = [ids[to]!, ids[from]!]
     void saveOrder(ids)
   }
-  const dropOn = (targetId: string): void => {
-    if (!dragId || dragId === targetId) return
-    const ids = ordered.map((t) => t.id).filter((id) => id !== dragId)
-    ids.splice(ids.indexOf(targetId), 0, dragId)
-    setDragId(null)
-    void saveOrder(ids)
+  /** Click a row and drag it up or down; the rows shuffle live and the new order is saved when you let go. */
+  const startDrag = (e: React.PointerEvent<HTMLLIElement>, id: string): void => {
+    if (e.button !== 0 || (e.target as HTMLElement).closest('button, a, input, select, textarea')) return
+    e.preventDefault()
+    const start = ordered.map((t) => t.id)
+    let current = start
+    setDragId(id)
+    setLiveIds(start)
+    const onMove = (ev: PointerEvent): void => {
+      const row = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('li[data-txid]')
+      const over = row?.dataset['txid']
+      if (!row || !over || over === id) return
+      const from = current.indexOf(id)
+      const to = current.indexOf(over)
+      const rect = row.getBoundingClientRect()
+      // swap only once the pointer has crossed the middle of the row it is over, so the rows do not flicker
+      if ((to > from && ev.clientY < rect.top + rect.height / 2) || (to < from && ev.clientY > rect.top + rect.height / 2)) return
+      const next = current.filter((x) => x !== id)
+      next.splice(to, 0, id)
+      current = next
+      setLiveIds(next)
+    }
+    const onEnd = (): void => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onEnd)
+      window.removeEventListener('pointercancel', onEnd)
+      setDragId(null)
+      if (current.some((x, i) => x !== start[i])) void saveOrder(current).finally(() => setLiveIds(null))
+      else setLiveIds(null)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onEnd)
+    window.addEventListener('pointercancel', onEnd)
   }
-
   return (
     <div className="page">
       <header className="page-header">
@@ -226,7 +260,7 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
       {data && sortMode === 'priority' && data.length > 0 && (
         <>
           <p className="muted small">
-            {canReorder ? 'จัดลำดับความสำคัญ: กด ▲ ▼ หรือลากรายการไปวาง (รายการบนสุด = สำคัญที่สุด) รายการใหม่จะไปอยู่ท้ายสุด' : 'ล้างตัวกรองก่อน ถึงจะจัดลำดับความสำคัญได้'}
+            {canReorder ? 'จัดลำดับความสำคัญ: คลิกที่รายการแล้วลากขึ้น-ลง หรือกด ▲ ▼ (รายการบนสุด = สำคัญที่สุด) รายการใหม่จะไปอยู่ท้ายสุด' : 'ล้างตัวกรองก่อน ถึงจะจัดลำดับความสำคัญได้'}
           </p>
           <ul className="tx-list">
             {ordered.map((t, i) => (
@@ -234,7 +268,7 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
                 key={t.id}
                 item={t}
                 showDate
-                order={canReorder ? { rank: i + 1, canUp: i > 0, canDown: i < ordered.length - 1, onUp: () => moveBy(t.id, -1), onDown: () => moveBy(t.id, 1), dragging: dragId === t.id, onDragStart: () => setDragId(t.id), onDragEnd: () => setDragId(null), onDrop: () => dropOn(t.id) } : undefined}
+                order={canReorder ? { rank: i + 1, canUp: i > 0, canDown: i < ordered.length - 1, onUp: () => moveBy(t.id, -1), onDown: () => moveBy(t.id, 1), dragging: dragId === t.id, onPointerDown: (e) => startDrag(e, t.id) } : undefined}
               />
             ))}
           </ul>

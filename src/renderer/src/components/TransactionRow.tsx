@@ -12,9 +12,8 @@ export interface RowOrder {
   onUp: () => void
   onDown: () => void
   dragging: boolean
-  onDragStart: () => void
-  onDragEnd: () => void
-  onDrop: () => void
+  /** Press on the row and drag it up or down (pointer based, so it works the same everywhere). */
+  onPointerDown: (e: React.PointerEvent<HTMLLIElement>) => void
 }
 
 export function TransactionRow({ item, showDate = false, order }: { item: TransactionView; showDate?: boolean; order?: RowOrder }): React.JSX.Element {
@@ -31,12 +30,9 @@ export function TransactionRow({ item, showDate = false, order }: { item: Transa
   return (
     <li
       className="tx-row"
-      style={order ? { gridTemplateColumns: 'auto auto minmax(0, 1fr) auto auto', opacity: order.dragging ? 0.5 : 1 } : undefined}
-      draggable={order ? true : undefined}
-      onDragStart={order ? () => order.onDragStart() : undefined}
-      onDragEnd={order ? () => order.onDragEnd() : undefined}
-      onDragOver={order ? (e) => e.preventDefault() : undefined}
-      onDrop={order ? (e) => { e.preventDefault(); order.onDrop() } : undefined}
+      data-txid={order ? item.id : undefined}
+      style={order ? { gridTemplateColumns: 'auto auto minmax(0, 1fr) auto auto', cursor: order.dragging ? 'grabbing' : 'grab', userSelect: 'none', background: order.dragging ? 'var(--sky)' : undefined, transform: order.dragging ? 'scale(1.01)' : undefined } : undefined}
+      onPointerDown={order ? order.onPointerDown : undefined}
     >
       {order && (
         <div className="tx-order" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
