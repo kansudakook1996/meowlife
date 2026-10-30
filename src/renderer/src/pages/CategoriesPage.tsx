@@ -65,7 +65,10 @@ export function CategoriesPage(): React.JSX.Element {
               <span className={`tx-icon ${kind}`} aria-hidden="true">
                 {c.icon}
               </span>
-              <span className="tx-title">{c.name}</span>
+              <span className="tx-title">
+                {c.name}
+                {c.excluded && <span className="badge badge-unpaid" style={{ marginLeft: 8 }} title="ไม่รวมในยอดรายจ่ายและกราฟสัดส่วน">ไม่นับเป็นรายจ่าย</span>}
+              </span>
               <span className="tx-actions">
                 <button type="button" className="icon-btn" aria-label={`แก้ไขหมวด ${c.name}`} title="แก้ไข" onClick={() => setEditing({ type: 'category', item: c, kind })}>
                   ✏️
@@ -144,6 +147,7 @@ function CatalogForm(props: { editing: NonNullable<Editing>; onCancel: () => voi
   const { editing } = props
   const [name, setName] = useState(editing.item?.name ?? '')
   const [icon, setIcon] = useState(editing.type === 'category' ? (editing.item?.icon ?? (editing.kind === 'income' ? '💰' : '🏷️')) : '')
+  const [excluded, setExcluded] = useState(editing.type === 'category' ? (editing.item?.excluded ?? false) : false)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -154,7 +158,7 @@ function CatalogForm(props: { editing: NonNullable<Editing>; onCancel: () => voi
     setError(null)
     try {
       if (editing.type === 'category') {
-        const input = { kind: editing.kind, name: name.trim(), icon: icon.trim() || '🏷️' }
+        const input = { kind: editing.kind, name: name.trim(), icon: icon.trim() || '🏷️', excluded: editing.kind === 'expense' ? excluded : false }
         if (editing.item) await unwrap(meow().categories.update(editing.item.id, input))
         else await unwrap(meow().categories.create(input))
         props.onSaved(`บันทึกหมวด "${name.trim()}" แล้ว`)
@@ -193,6 +197,14 @@ function CatalogForm(props: { editing: NonNullable<Editing>; onCancel: () => voi
             ))}
           </div>
         </div>
+      )}
+      {editing.type === 'category' && editing.kind === 'expense' && (
+        <label className="check">
+          <input type="checkbox" checked={excluded} onChange={(e) => setExcluded(e.target.checked)} /> ไม่นับเป็นรายจ่าย (เช่น เงินออม เงินโอนเข้าบัญชีตัวเอง)
+        </label>
+      )}
+      {editing.type === 'category' && editing.kind === 'expense' && excluded && (
+        <p className="info">รายการในหมวดนี้ยังบันทึกและตามจ่ายได้ตามปกติ แต่จะไม่รวมในยอดรายจ่าย กราฟสัดส่วน และรายงาน ยอดรวมจะแสดงแยกเป็น "ไม่นับเป็นรายจ่าย"</p>
       )}
       <div className="form-actions">
         <button type="button" className="btn btn-secondary" onClick={props.onCancel}>

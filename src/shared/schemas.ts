@@ -84,7 +84,9 @@ export const RecurringUpdateSchema = z.strictObject({ id: IdSchema, input: Recur
 export const CategoryInputSchema = z.strictObject({
   kind: EntryKindSchema,
   name: z.string().trim().min(1, { error: 'กรุณาใส่ชื่อหมวด' }).max(40, { error: 'ชื่อหมวดยาวเกิน 40 ตัวอักษร' }),
-  icon: z.string().trim().min(1).max(8)
+  icon: z.string().trim().min(1).max(8),
+  /** Not counted as spending (savings, transfers to yourself). Left out = unchanged on update, false on create. */
+  excluded: z.boolean().optional()
 })
 export type CategoryInput = z.infer<typeof CategoryInputSchema>
 

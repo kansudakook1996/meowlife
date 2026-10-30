@@ -8,6 +8,8 @@ export interface Category {
   name: string
   icon: string
   sortOrder: number
+  /** Money in this category is not counted as spending (e.g. savings): left out of expense totals, charts and the pie. */
+  excluded: boolean
 }
 
 export interface PaymentMethod {
@@ -39,6 +41,8 @@ export interface Transaction {
 export interface TransactionView extends Transaction {
   categoryName: string | null
   categoryIcon: string | null
+  /** The item's category is one that is not counted as spending. */
+  categoryExcluded: boolean
   paymentMethodName: string | null
   status: PaymentStatus
   /** Days until due (negative = overdue). Null when there is no due date or it is paid. */
@@ -72,6 +76,8 @@ export interface MonthSummary {
   incomeReceived: number
   expenseTotal: number
   expensePaid: number
+  /** Expenses in categories that are not counted as spending (e.g. savings); NOT part of expenseTotal. */
+  excludedTotal: number
   balance: number
   outstanding: number
   overdueCount: number

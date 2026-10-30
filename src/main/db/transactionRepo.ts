@@ -25,11 +25,12 @@ interface TransactionRow {
   updated_at: string
   category_name: string | null
   category_icon: string | null
+  category_excluded: number | null
   payment_method_name: string | null
 }
 
 const SELECT_VIEW = `
-  SELECT t.*, c.name AS category_name, c.icon AS category_icon, p.name AS payment_method_name
+  SELECT t.*, c.name AS category_name, c.icon AS category_icon, c.excluded AS category_excluded, p.name AS payment_method_name
   FROM transactions t
   LEFT JOIN categories c ON c.id = t.category_id
   LEFT JOIN payment_methods p ON p.id = t.payment_method_id`
@@ -55,6 +56,7 @@ function toView(r: TransactionRow, today: string): TransactionView {
     updatedAt: r.updated_at,
     categoryName: r.category_name,
     categoryIcon: r.category_icon,
+    categoryExcluded: r.category_excluded === 1,
     paymentMethodName: r.payment_method_name,
     status: info.status,
     daysUntilDue: info.daysUntilDue
@@ -101,9 +103,11 @@ export function monthlyTotals(db: Db, endMonth: string, count: number): MonthTot
   const to = firstDayOfNextMonth(endMonth)
   const rows = db
     .prepare(
-      `SELECT substr(txn_date, 1, 7) AS month, kind, SUM(amount_satang) AS total
-       FROM transactions WHERE deleted_at IS NULL AND txn_date >= ? AND txn_date < ?
-       GROUP BY month, kind`
+      `SELECT substr(t.txn_date, 1, 7) AS month, t.kind, SUM(t.amount_satang) AS total
+       FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
+       WHERE t.deleted_at IS NULL AND t.txn_date >= ? AND t.txn_date < ?
+         AND NOT (t.kind = 'expense' AND COALESCE(c.excluded, 0) = 1)
+       GROUP BY month, t.kind`
     )
     .all(from, to) as unknown as Array<{ month: string; kind: EntryKind; total: number }>
   return fillMonths(endMonth, count, rows)

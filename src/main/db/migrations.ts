@@ -290,6 +290,13 @@ const migrations: Migration[] = [
       // The user's own importance order of ledger items (NULL = not ordered yet, shown after the ordered ones).
       db.exec('ALTER TABLE transactions ADD COLUMN priority_order INTEGER')
     }
+  },
+  {
+    version: 8,
+    up(db) {
+      // A category can be marked "not counted as spending" (savings etc.). Existing categories stay counted until the user changes them.
+      db.exec('ALTER TABLE categories ADD COLUMN excluded INTEGER NOT NULL DEFAULT 0 CHECK (excluded IN (0, 1))')
+    }
   }
 ]
 

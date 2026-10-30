@@ -130,6 +130,35 @@ export type CardRecurringInput = z.infer<typeof CardRecurringInputSchema>
 /** Suggestions shown as chips when adding a charge. */
 export const CHARGE_CATEGORIES = ['อาหาร', 'ของใช้', 'เดินทาง', 'ช้อปปิ้ง', 'สมาชิก/บริการ', 'สุขภาพ', 'บันเทิง', 'อื่น ๆ'] as const
 
+/* ---------- duplicate detection ---------- */
+
+/** Title compared loosely: trimmed, lower-cased, inner spaces collapsed. */
+export const normalizeTitle = (title: string): string => title.trim().toLocaleLowerCase('th').replace(/\s+/g, ' ')
+
+export interface DuplicateReport {
+  /** Ids of every charge that has at least one twin (same card, title, amount and statement). */
+  ids: string[]
+  /** Money that would be counted twice if the twins really are the same purchase (all but one of each group). */
+  excessSatang: number
+}
+
+/** Charges that look entered twice: same card, same title, same amount, same statement month. */
+export function findDuplicateCharges(charges: CardCharge[]): DuplicateReport {
+  const groups = new Map<string, CardCharge[]>()
+  for (const c of charges) {
+    const key = `${c.cardId}|${normalizeTitle(c.title)}|${c.amountSatang}|${c.billMonth}`
+    groups.set(key, [...(groups.get(key) ?? []), c])
+  }
+  const ids: string[] = []
+  let excessSatang = 0
+  for (const group of groups.values()) {
+    if (group.length < 2) continue
+    ids.push(...group.map((c) => c.id))
+    excessSatang += sumSatang(group.slice(1).map((c) => c.amountSatang))
+  }
+  return { ids, excessSatang }
+}
+
 /* ---------- statement rules ---------- */
 
 /** Which statement a purchase lands on: on/before the statement day → this month's, after → next month's. */
@@ -204,6 +233,8 @@ export interface CardStatement {
   installments: PlanLine[]
   /** Every plan of the card (including finished and upcoming) for the management list. */
   allPlans: PlanLine[]
+  /** Charges that look entered twice (e.g. typed by hand AND created by a repeating charge). */
+  duplicates: DuplicateReport
   chargesTotal: number
   installmentsTotal: number
   /** Everything the bank bills for this statement. */
@@ -236,6 +267,7 @@ export function buildStatement(
     statementDate: statementDateFor(month, card.statementDay),
     dueDate: dueDateFor(month, card.statementDay, card.dueDay),
     charges: mine,
+    duplicates: findDuplicateCharges(mine),
     installments,
     allPlans: lines,
     chargesTotal,
@@ -271,6 +303,8 @@ export interface CardStatementView extends CardStatement {
 
 export interface CardsOverview {
   month: string
+  /** Titles of the active repeating items on the Recurring page (normalised): the same bill typed there AND on a card is counted twice. */
+  ledgerRuleTitles: string[]
   cards: CardStatementView[]
   totalDue: number
   /** Our own part of every statement / the partner's part. */
@@ -280,13 +314,14 @@ export interface CardsOverview {
   installmentsTotal: number
 }
 
-export function overviewOf(month: string, cards: Array<Omit<CardStatementView, 'daysToDue'>>, today: string): CardsOverview {
+export function overviewOf(month: string, cards: Array<Omit<CardStatementView, 'daysToDue'>>, today: string, ledgerRuleTitles: string[] = []): CardsOverview {
   const views: CardStatementView[] = cards.map((c) => ({
     ...c,
     daysToDue: c.bill?.isPaid ? null : diffDays(today, c.dueDate)
   }))
   return {
     month,
+    ledgerRuleTitles,
     cards: views,
     totalDue: sumSatang(views.map((v) => v.total)),
     totalMine: sumSatang(views.map((v) => v.mineTotal)),

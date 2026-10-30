@@ -77,8 +77,10 @@ test('set up a card, add a charge and an instalment plan, see the totals', async
 })
 
 test('create the ledger bill, keep it up to date, and never duplicate it', async () => {
-  await page.getByRole('button', { name: 'สร้างรายการจ่ายบิล', exact: true }).click()
-  await expect(page.getByText(/สร้างรายการจ่ายบิลแล้ว/)).toBeVisible()
+  // A statement that has already closed gets its bill by itself; an open one needs the button. Either way the bill ends up in the ledger.
+  await expect(page.getByText(/รายการจ่ายบิล ฿|ยังไม่ได้สร้างรายการจ่ายบิล/)).toBeVisible()
+  const createButton = page.getByRole('button', { name: 'สร้างรายการจ่ายบิล', exact: true })
+  if ((await createButton.count()) > 0) await createButton.click()
   await expect(page.getByText(/รายการจ่ายบิล ฿1,750.00/)).toBeVisible()
 
   // A new purchase changes the statement: the unpaid ledger bill follows by itself, no button to press.
@@ -231,4 +233,26 @@ test('cards can be dragged into the order you prefer, and the order is kept', as
   await page.getByRole('button', { name: /จัดลำดับบัตร SCB/ }).focus()
   await page.keyboard.press('Alt+ArrowDown')
   await expect(titles.first()).toContainText('KTC')
+})
+test('typing a charge the card already has gets a warning; a repeating charge with the name of a Recurring-page item is flagged', async () => {
+  // the first test of this file left the page on the cards; use SCB (empty) and a fresh charge twice
+  await page.getByRole('button', { name: '＋ เพิ่มยอด', exact: true }).first().click()
+  const dialog = page.getByRole('dialog')
+  const fill = async (): Promise<void> => {
+    await dialog.getByLabel('วันที่ใช้จ่าย').fill(`${month}-07`)
+    await dialog.getByLabel('รายการ', { exact: true }).fill('กาแฟ')
+    await dialog.getByLabel('จำนวนเงิน (บาท)').fill('90')
+  }
+  await fill()
+  await dialog.getByRole('button', { name: 'บันทึก' }).click()
+  await expect(page.getByText('กาแฟ', { exact: true })).toHaveCount(1)
+
+  await page.getByRole('button', { name: '＋ เพิ่มยอด', exact: true }).first().click()
+  await fill()
+  await dialog.getByRole('button', { name: 'บันทึก' }).click()
+  await expect(dialog.getByText(/มียอด "กาแฟ" ฿90.00 ในรอบบิลนี้อยู่แล้ว/)).toBeVisible()
+  await dialog.getByRole('button', { name: 'บันทึก' }).click() // pressing again confirms it is a different purchase
+  await expect(page.getByText('กาแฟ', { exact: true })).toHaveCount(2)
+  await expect(page.getByText(/ยอดจะนับเกินไป ฿90.00/)).toBeVisible()
+  await expect(page.getByText('อาจซ้ำ').first()).toBeVisible()
 })

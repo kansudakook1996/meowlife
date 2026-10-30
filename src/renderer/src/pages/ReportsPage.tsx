@@ -55,6 +55,7 @@ export function ReportsPage(): React.JSX.Element {
               <span className="label">💸 รายจ่าย</span>
               <span className="value">{formatSatang(data.summary.expenseTotal)}</span>
               <span className="muted small">เดือนก่อน {formatSatang(data.previous.expenseTotal)}</span>
+              {data.summary.excludedTotal > 0 && <span className="muted small">ไม่นับเป็นรายจ่าย {formatSatang(data.summary.excludedTotal)}</span>}
             </div>
             <div className="summary-card summary-balance">
               <span className="label">🐷 คงเหลือ</span>

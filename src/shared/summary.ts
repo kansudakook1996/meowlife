@@ -6,7 +6,10 @@ const UNCATEGORIZED = { name: 'ไม่ระบุหมวด', icon: '🏷�
 /** Monthly totals. `items` must already be the non-deleted items of `month`. */
 export function summarizeMonth(month: string, items: TransactionView[]): MonthSummary {
   const income = items.filter((t) => t.kind === 'income')
-  const expense = items.filter((t) => t.kind === 'expense')
+  const allExpense = items.filter((t) => t.kind === 'expense')
+  // Savings and the like are still money to pay, but they are not spending.
+  const expense = allExpense.filter((t) => !t.categoryExcluded)
+  const excludedTotal = sumSatang(allExpense.filter((t) => t.categoryExcluded).map((t) => t.amountSatang))
 
   const incomeTotal = sumSatang(income.map((t) => t.amountSatang))
   const incomeReceived = sumSatang(income.filter((t) => t.isPaid).map((t) => t.amountSatang))
@@ -32,10 +35,11 @@ export function summarizeMonth(month: string, items: TransactionView[]): MonthSu
     incomeReceived,
     expenseTotal,
     expensePaid,
+    excludedTotal,
     balance: incomeTotal - expenseTotal,
-    outstanding: expenseTotal - expensePaid,
-    overdueCount: expense.filter((t) => t.status === 'overdue').length,
-    dueSoonCount: expense.filter((t) => t.status === 'due_soon').length,
+    outstanding: sumSatang(allExpense.filter((t) => !t.isPaid).map((t) => t.amountSatang)),
+    overdueCount: allExpense.filter((t) => t.status === 'overdue').length,
+    dueSoonCount: allExpense.filter((t) => t.status === 'due_soon').length,
     itemCount: items.length,
     expenseByCategory: [...byCategory.values()].sort((a, b) => b.totalSatang - a.totalSatang)
   }

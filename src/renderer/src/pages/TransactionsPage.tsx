@@ -64,7 +64,7 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
   }, [searchFocusSignal])
 
   const query = { month, kind, status, search: search.trim(), categoryId: categoryId || null }
-  const { data, error } = useLoad(`${JSON.stringify(query)}:${dataVersion}`, () => unwrap(meow().transactions.list(query)))
+  const { data, error, loading } = useLoad(`${JSON.stringify(query)}:${dataVersion}`, () => unwrap(meow().transactions.list(query)))
 
   const setSortMode = (mode: SortMode): void => {
     setSortModeState(mode)
@@ -76,11 +76,12 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
   }
   const saved = useMemo(() => (data ? byPriority(data) : []), [data])
   const ordered = useMemo(() => {
-    if (!liveIds) return saved
+    // Keep showing the dropped order until the saved one has been reloaded, so the list never flashes back to the old order.
+    if (!liveIds || !(dragId !== null || loading)) return saved
     const byId = new Map(saved.map((t) => [t.id, t]))
     const live = liveIds.map((id) => byId.get(id)).filter((t): t is TransactionView => t !== undefined)
     return live.length === saved.length ? live : saved
-  }, [saved, liveIds])
+  }, [saved, liveIds, dragId, loading])
 
   const filtered = kind !== 'all' || status !== 'all' || categoryId !== '' || search.trim() !== ''
   const income = data ? sumSatang(data.filter((t) => t.kind === 'income').map((t) => t.amountSatang)) : 0
@@ -132,7 +133,7 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
       window.removeEventListener('pointerup', onEnd)
       window.removeEventListener('pointercancel', onEnd)
       setDragId(null)
-      if (current.some((x, i) => x !== start[i])) void saveOrder(current).finally(() => setLiveIds(null))
+      if (current.some((x, i) => x !== start[i])) void saveOrder(current)
       else setLiveIds(null)
     }
     window.addEventListener('pointermove', onMove)

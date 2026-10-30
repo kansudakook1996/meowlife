@@ -98,6 +98,7 @@ const bridge: MeowBridge = {
       restore: (id) => ipcRenderer.invoke(ch('cards', 'restore'), id),
       overview: (month) => ipcRenderer.invoke(ch('cards', 'overview'), month),
       charges: {
+        duplicates: (input, excludeId) => ipcRenderer.invoke(ch('cards', 'charges.duplicates'), { input, excludeId }),
         create: (input) => ipcRenderer.invoke(ch('cards', 'charges.create'), input),
         update: (id, input) => ipcRenderer.invoke(ch('cards', 'charges.update'), { id, input }),
         remove: (id) => ipcRenderer.invoke(ch('cards', 'charges.remove'), id),

@@ -35,7 +35,7 @@ export const GENERATED_UPDATED_AT = '1970-01-01T00:00:00.000Z'
 const COMMON = ['id', 'created_at', 'updated_at', 'deleted_at'] as const
 
 export const TABLE_COLUMNS: Record<SyncTable, readonly string[]> = {
-  categories: [...COMMON, 'kind', 'name', 'icon', 'sort_order'],
+  categories: [...COMMON, 'kind', 'name', 'icon', 'sort_order', 'excluded'],
   payment_methods: [...COMMON, 'name', 'sort_order'],
   recurring_rules: [
     ...COMMON,
@@ -95,6 +95,7 @@ export function docToRow(table: SyncTable, doc: SyncDoc): Record<string, string 
   for (const col of TABLE_COLUMNS[table]) row[col] = doc[toCamel(col)] ?? null
   // NOT NULL column that older documents lack: no value means nothing is split.
   if ('partner_satang' in row && row['partner_satang'] === null) row['partner_satang'] = 0
+  if (table === 'categories' && row['excluded'] === null) row['excluded'] = 0
   return row
 }
 
@@ -120,7 +121,9 @@ export const DOC_SCHEMAS: Record<SyncTable, z.ZodType<SyncDoc>> = {
     kind: EntryKindSchema,
     name: z.string().min(1).max(40),
     icon: z.string().min(1).max(8),
-    sortOrder: z.number().int().min(0).max(100000)
+    sortOrder: z.number().int().min(0).max(100000),
+    // Added later: documents written by older versions do not have it (= counted as spending).
+    excluded: Int01.optional()
   }) as unknown as z.ZodType<SyncDoc>,
   payment_methods: z.strictObject({
     ...base,

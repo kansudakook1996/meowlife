@@ -110,6 +110,8 @@ export interface PortalBridge {
     /** Every active card's statement for a statement month, with totals and the linked ledger bill. */
     overview(month: string): R<CardsOverview>
     charges: {
+      /** Charges already on the card with the same title and amount in the same statement (for a warning before saving). */
+      duplicates(input: ChargeInput, excludeId: string | null): R<CardCharge[]>
       create(input: ChargeInput): R<CardCharge>
       update(id: string, input: ChargeInput): R<CardCharge>
       remove(id: string): R<void>

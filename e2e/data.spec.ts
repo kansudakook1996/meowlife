@@ -62,6 +62,41 @@ test('categories: add, rename and delete', async () => {
   await page.screenshot({ path: 'test-results/06-categories.png' })
 })
 
+test('a category marked "not counted as spending" stays out of the expense total but is shown separately', async () => {
+  await nav('หมวดหมู่').click()
+  await page.locator('section[aria-labelledby="cat-expense"]').getByRole('button', { name: '＋ เพิ่มหมวด' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('ชื่อ').fill('เงินออมทดสอบ')
+  await dialog.getByLabel(/ไม่นับเป็นรายจ่าย/).check()
+  await dialog.getByRole('button', { name: 'บันทึก' }).click()
+  await expect(page.getByText('ไม่นับเป็นรายจ่าย', { exact: true })).toBeVisible()
+
+  await nav('รายการรับ-จ่าย').click()
+  await page.getByRole('button', { name: '＋ เพิ่มรายการ' }).first().click()
+  await dialog.getByLabel('ชื่อรายการ').fill('ออมประจำเดือน')
+  await dialog.getByLabel('จำนวนเงิน (บาท)').fill('500')
+  await dialog.getByText('รายละเอียดเพิ่มเติม (ไม่บังคับ)').click()
+  const select = dialog.getByLabel('หมวดหมู่')
+  const wanted = await select.locator('option', { hasText: 'เงินออมทดสอบ' }).first().getAttribute('value')
+  await select.selectOption(wanted!)
+  await dialog.getByRole('button', { name: 'บันทึก' }).click()
+  await expect(page.getByText('ออมประจำเดือน', { exact: true })).toBeVisible()
+
+  await nav('ภาพรวม').click()
+  await expect(page.locator('.summary-expense .value')).toHaveText('฿0.00')
+  await expect(page.locator('.summary-expense')).toContainText('ไม่นับเป็นรายจ่าย (เช่น เงินออม) ฿500.00')
+
+  // clean up so the later export / report tests see the same data as before
+  await nav('รายการรับ-จ่าย').click()
+  await page.getByRole('button', { name: 'ลบ ออมประจำเดือน' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'ลบรายการ' }).click()
+  await expect(page.getByRole('button', { name: 'ลบ ออมประจำเดือน' })).toHaveCount(0)
+  await nav('หมวดหมู่').click()
+  await page.getByRole('button', { name: 'ลบหมวด เงินออมทดสอบ' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'ลบหมวด' }).click()
+  await expect(page.getByRole('button', { name: 'ลบหมวด เงินออมทดสอบ' })).toHaveCount(0) // (the toast repeats the name, so count the button)
+})
+
 test('import a CSV: map, preview, catch bad rows and duplicates, then import', async () => {
   const csv = [
     'วันที่,รายการ,จำนวนเงิน,ประเภท,หมวดหมู่',

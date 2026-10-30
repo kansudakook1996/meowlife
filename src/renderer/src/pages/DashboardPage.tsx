@@ -85,11 +85,12 @@ export function DashboardPage(): React.JSX.Element {
               <span className="label">💸 รายจ่าย</span>
               <span className="value">{formatSatang(s.expenseTotal)}</span>
               <span className="muted small">จ่ายแล้ว {formatSatang(s.expensePaid)}</span>
+              {s.excludedTotal > 0 && <span className="muted small">ไม่นับเป็นรายจ่าย (เช่น เงินออม) {formatSatang(s.excludedTotal)}</span>}
             </div>
             <div className="summary-card summary-balance">
               <span className="label">🐷 คงเหลือ</span>
               <span className={s.balance < 0 ? 'value negative' : 'value'}>{formatSatang(s.balance)}</span>
-              <span className="muted small">รายรับ − รายจ่าย</span>
+              <span className="muted small">{s.excludedTotal > 0 ? `รายรับ − รายจ่าย (ยังไม่หักที่ไม่นับ ${formatSatang(s.excludedTotal)})` : 'รายรับ − รายจ่าย'}</span>
             </div>
             <div className="summary-card summary-outstanding">
               <span className="label">🧾 ค้างชำระ</span>

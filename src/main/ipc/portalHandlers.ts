@@ -15,7 +15,7 @@ import { MAX_SATANG } from '@shared/money'
 import { CardInputSchema, CardRecurringInputSchema, ChargeInputSchema, PlanInputSchema } from '@shared/cards'
 import { reorderTransactions } from '../db/transactionRepo'
 import { cardAnalytics } from '../db/cardAnalytics'
-import { cardsOverview, createCard, createCardBill, createCardRecurring, createCharge, createPlan, listCards, refreshCardBills, reorderCards, setCardPaid, setPartnerPaid, updateCard, updateCardRecurring, updateCharge, updatePlan } from '../db/cardRepo'
+import { cardsOverview, createCard, createCardBill, createCardRecurring, createCharge, findDuplicateChargesOf, createPlan, listCards, refreshCardBills, reorderCards, setCardPaid, setPartnerPaid, updateCard, updateCardRecurring, updateCharge, updatePlan } from '../db/cardRepo'
 import type { Db } from '../db/connection'
 import {
   activityInsights,
@@ -102,6 +102,13 @@ export function registerPortalHandlers(db: Db, onSettings: (s: AppSettings) => v
 
   handle(c('ledger', 'reorder'), z.array(IdSchema).max(2000), (ids) => reorderTransactions(db, ids))
 
+  // On start-up: bills of statements that closed while the app was closed.
+  try {
+    refreshCardBills(db, today())
+  } catch {
+    /* never block the app from starting because of a bill refresh */
+  }
+
   // Any change to what a card owes also refreshes the unpaid ledger bills, so the bill amount is never out of date.
   const cardChange = <T>(fn: () => T): T => {
     const result = fn()
@@ -114,11 +121,15 @@ export function registerPortalHandlers(db: Db, onSettings: (s: AppSettings) => v
   handle(c('cards', 'update'), Update(CardInputSchema), ({ id, input }) => cardChange(() => updateCard(db, id, input)))
   handle(c('cards', 'remove'), IdSchema, (id) => cardChange(() => removeRow(db, 'credit_cards', id)))
   handle(c('cards', 'restore'), IdSchema, (id) => cardChange(() => restoreRow(db, 'credit_cards', id)))
-  handle(c('cards', 'overview'), MonthSchema, (month) => cardsOverview(db, month, today()))
+  handle(c('cards', 'overview'), MonthSchema, (month) => {
+    refreshCardBills(db, today()) // a statement may have closed since the app was last used
+    return cardsOverview(db, month, today())
+  })
   handle(c('cards', 'charges.create'), ChargeInputSchema, (i) => cardChange(() => createCharge(db, i)))
   handle(c('cards', 'charges.update'), Update(ChargeInputSchema), ({ id, input }) => cardChange(() => updateCharge(db, id, input)))
   handle(c('cards', 'charges.remove'), IdSchema, (id) => cardChange(() => removeRow(db, 'card_charges', id)))
   handle(c('cards', 'charges.restore'), IdSchema, (id) => cardChange(() => restoreRow(db, 'card_charges', id)))
+  handle(c('cards', 'charges.duplicates'), z.strictObject({ input: ChargeInputSchema, excludeId: IdSchema.nullable() }), ({ input, excludeId }) => findDuplicateChargesOf(db, input, excludeId))
   handle(c('cards', 'plans.create'), PlanInputSchema, (i) => cardChange(() => createPlan(db, i)))
   handle(c('cards', 'plans.update'), Update(PlanInputSchema), ({ id, input }) => cardChange(() => updatePlan(db, id, input)))
   handle(c('cards', 'plans.remove'), IdSchema, (id) => cardChange(() => removeRow(db, 'card_plans', id)))

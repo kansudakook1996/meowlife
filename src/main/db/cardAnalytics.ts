@@ -38,12 +38,14 @@ export function cardAnalytics(db: Db, month: string, today: string): CardAnalyti
   const add = (name: string, icon: string, satang: number): void => {
     if (satang <= 0) return
     const cur = totals.get(name)
+    if (excludedNames.has(name)) return
     if (cur) cur.totalSatang += satang
     else totals.set(name, { name, icon, totalSatang: satang })
   }
-  const iconOf = new Map<string, string>(
-    (db.prepare("SELECT name, icon FROM categories WHERE deleted_at IS NULL AND kind = 'expense'").all() as unknown as Array<{ name: string; icon: string }>).map((r) => [r.name, r.icon])
-  )
+  const categoryRows = db.prepare("SELECT name, icon, excluded FROM categories WHERE deleted_at IS NULL AND kind = 'expense'").all() as unknown as Array<{ name: string; icon: string; excluded: number }>
+  const iconOf = new Map<string, string>(categoryRows.map((r) => [r.name, r.icon]))
+  // Categories that are not counted as spending (savings…) stay out of the pie, whether they come from the ledger or a card.
+  const excludedNames = new Set(categoryRows.filter((r) => r.excluded === 1).map((r) => r.name))
 
   const billIds = new Set<string>()
   for (const card of cards) {

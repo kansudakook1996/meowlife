@@ -87,14 +87,32 @@ describe('refreshCardBills keeps unpaid bills in step with the statement', () =>
     expect(first.id).toBeTruthy()
   })
 
-  it('does not create bills just because months exist', () => {
-    const c = card()
-    charge(c.id, 100_000)
+  it('creates the bill of a statement that has closed, but never of an open or an old one, nor one the user deleted', () => {
+    const c = card() // statement day 25, due day 10 of the next month
+    charge(c.id, 100_000) // October statement, closed on 2026-10-25 (today is the 29th) -> due 2026-11-10
+    charge(c.id, 40_000, 0, 'อาหาร', '2026-10-28') // November statement: still open
+    charge(c.id, 30_000, 0, 'อาหาร', '2026-05-05') // May statement: long settled, not worth a bill
+    expect(refreshCardBills(db, TODAY)).toBe(1)
+    const bill = getTransaction(db, cardBillId(c.id, '2026-10'), TODAY)
+    expect(bill).toMatchObject({ amountSatang: 100_000, isPaid: false, kind: 'expense' })
+    expect(bill.title).toContain('KTC')
+    expect(db.prepare('SELECT COUNT(*) AS n FROM transactions').get()).toEqual({ n: 1 })
+    expect(refreshCardBills(db, TODAY)).toBe(0) // idempotent
+
+    // the user deletes it: it stays deleted
+    db.prepare('UPDATE transactions SET deleted_at = ? WHERE id = ?').run('2026-10-29T09:00:00.000Z', bill.id)
     expect(refreshCardBills(db, TODAY)).toBe(0)
-    expect(db.prepare('SELECT COUNT(*) AS n FROM transactions').get()).toEqual({ n: 0 })
+    expect(listMonth(db, '2026-11', TODAY)).toHaveLength(0)
+    // ...until they press the button, which starts it again
+    expect(createCardBill(db, c.id, '2026-10', TODAY)).toMatchObject({ action: 'created', amountSatang: 100_000 })
+  })
+
+  it('a statement whose mine part is zero gets no bill', () => {
+    const c = card()
+    charge(c.id, 50_000, 50_000)
+    expect(refreshCardBills(db, TODAY)).toBe(0)
   })
 })
-
 describe('card analytics', () => {
   it("pie: counts our share by category, drops the partner's items, and never counts the card bill twice", () => {
     const c = card()

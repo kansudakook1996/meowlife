@@ -9,16 +9,17 @@ interface CategoryRow {
   name: string
   icon: string
   sort_order: number
+  excluded: number
 }
 
 function toCategory(r: CategoryRow): Category {
-  return { id: r.id, kind: r.kind, name: r.name, icon: r.icon, sortOrder: r.sort_order }
+  return { id: r.id, kind: r.kind, name: r.name, icon: r.icon, sortOrder: r.sort_order, excluded: r.excluded === 1 }
 }
 
 export function listCategories(db: Db): Category[] {
   const rows = db
     .prepare(
-      `SELECT id, kind, name, icon, sort_order FROM categories
+      `SELECT id, kind, name, icon, sort_order, excluded FROM categories
        WHERE deleted_at IS NULL ORDER BY kind DESC, sort_order, name`
     )
     .all() as unknown as CategoryRow[]
@@ -30,18 +31,18 @@ export function createCategory(db: Db, input: CategoryInput): Category {
   const now = nowIso()
   const max = db.prepare('SELECT COALESCE(MAX(sort_order), -1) AS m FROM categories').get() as { m: number }
   db.prepare(
-    `INSERT INTO categories (id, kind, name, icon, sort_order, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(id, input.kind, input.name, input.icon, max.m + 1, now, now)
-  return { id, kind: input.kind, name: input.name, icon: input.icon, sortOrder: max.m + 1 }
+    `INSERT INTO categories (id, kind, name, icon, sort_order, excluded, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, input.kind, input.name, input.icon, max.m + 1, input.excluded ? 1 : 0, now, now)
+  return { id, kind: input.kind, name: input.name, icon: input.icon, sortOrder: max.m + 1, excluded: input.excluded === true }
 }
 
 export function updateCategory(db: Db, id: string, input: CategoryInput): Category {
   const result = db
-    .prepare('UPDATE categories SET kind = ?, name = ?, icon = ?, updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL')
-    .run(input.kind, input.name, input.icon, nowIso(), id)
+    .prepare('UPDATE categories SET kind = ?, name = ?, icon = ?, excluded = COALESCE(?, excluded), updated_at = ?, dirty = 1 WHERE id = ? AND deleted_at IS NULL')
+    .run(input.kind, input.name, input.icon, input.excluded === undefined ? null : input.excluded ? 1 : 0, nowIso(), id)
   if (result.changes === 0) throw new NotFoundError('ไม่พบหมวดหมู่นี้')
-  const row = db.prepare('SELECT id, kind, name, icon, sort_order FROM categories WHERE id = ?').get(id) as unknown as CategoryRow
+  const row = db.prepare('SELECT id, kind, name, icon, sort_order, excluded FROM categories WHERE id = ?').get(id) as unknown as CategoryRow
   return toCategory(row)
 }
 

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {
   billMonthFor,
+  normalizeTitle,
   billTitle,
   buildStatement,
   overviewOf,
@@ -19,7 +20,7 @@ import {
   type PlanInput,
   type SetCardPaidResult
 } from '@shared/cards'
-import { addMonths, formatThaiMonth, recurringDateFor } from '@shared/dates'
+import { addMonths, firstDayOfMonth, formatThaiMonth, recurringDateFor } from '@shared/dates'
 import { formatSatang } from '@shared/money'
 import { GENERATED_UPDATED_AT } from '@shared/syncModel'
 import { NotFoundError } from './catalogRepo'
@@ -279,10 +280,12 @@ export function buildOverview(db: Db, month: string, today: string): CardsOvervi
   const recurring = listCardRecurring(db)
   const charges = all(db, 'SELECT * FROM card_charges WHERE deleted_at IS NULL AND bill_month = ?', month).map(toCharge)
   const plans = all(db, 'SELECT * FROM card_plans WHERE deleted_at IS NULL').map(toPlan)
+  const ledgerRuleTitles = all(db, "SELECT title FROM recurring_rules WHERE deleted_at IS NULL AND is_active = 1 AND kind = 'expense'").map((r) => normalizeTitle(r['title'] as string))
   return overviewOf(
     month,
     cards.map((card) => ({ ...buildStatement(card, charges, plans, month, recurring), bill: billInfo(db, card.id, month, today), partnerPayment: partnerPaymentInfo(db, card.id, month) })),
-    today
+    today,
+    ledgerRuleTitles
   )
 }
 
@@ -291,6 +294,23 @@ export function cardsOverview(db: Db, month: string, today: string): CardsOvervi
   ensureCardRecurringForMonth(db, addMonths(month, -1))
   ensureCardRecurringForMonth(db, month)
   return buildOverview(db, month, today)
+}
+
+/** Category of the ledger bill of a card ("บัตรเครดิต" when the default category still exists). */
+function billCategoryId(db: Db): string | null {
+  const id = DEFAULT_CATEGORIES.find((c) => c.name === 'บัตรเครดิต')?.id ?? ''
+  return (one(db, 'SELECT id FROM categories WHERE id = ? AND deleted_at IS NULL', id) as { id: string } | undefined)?.id ?? null
+}
+
+/** Insert a brand-new unpaid ledger bill for a statement (the id is fixed, so two devices make the identical row). */
+function insertBillRow(db: Db, card: CreditCard, s: CardStatementView): string {
+  const id = cardBillId(card.id, s.month)
+  const now = nowIso()
+  db.prepare(
+    `INSERT INTO transactions (id, kind, title, amount_satang, category_id, txn_date, due_date, is_paid, note, created_at, updated_at)
+     VALUES (?, 'expense', ?, ?, ?, ?, ?, 0, ?, ?, ?)`
+  ).run(id, billTitle(card.name, s.month, formatThaiMonth), s.mineTotal, billCategoryId(db), s.dueDate, s.dueDate, billNote(s), now, now)
+  return id
 }
 
 function billNote(s: CardStatementView): string {
@@ -393,7 +413,9 @@ export function setCardPaid(db: Db, cardId: string, month: string, paid: boolean
 /**
  * Keep every UNPAID ledger bill equal to what its statement really is now (charges, instalments, repeating charges and the
  * partner's share all move the total). Bills that are paid are never touched; a bill whose statement became empty is removed.
- * Looks one year back and one year ahead, and only at months that already have a bill, so browsing never creates anything.
+ * Looks one year back and one year ahead at months that already have a bill. It also creates the bill of a statement that has just CLOSED
+ * (statement date passed, due this month or later) so the summary matches the cards without pressing anything; open statements,
+ * old ones and bills the user deleted are left alone.
  */
 export function refreshCardBills(db: Db, today: string): number {
   const cards = listCards(db).filter((c) => c.isActive)
@@ -403,9 +425,19 @@ export function refreshCardBills(db: Db, today: string): number {
   for (let i = -12; i <= 12; i++) {
     const month = addMonths(thisMonth, i)
     const open = cards.filter((c) => one(db, 'SELECT 1 AS x FROM transactions WHERE id = ? AND deleted_at IS NULL AND is_paid = 0', cardBillId(c.id, month)))
-    if (open.length === 0) continue
+    // Statements of the last few months that have no bill row AT ALL (a bill the user deleted is never brought back by itself).
+    const missing = i >= -2 && i <= 0 ? cards.filter((c) => !one(db, 'SELECT 1 AS x FROM transactions WHERE id = ?', cardBillId(c.id, month))) : []
+    if (open.length === 0 && missing.length === 0) continue
     const overview = cardsOverview(db, month, today)
     for (const s of overview.cards) {
+      if (missing.some((c) => c.id === s.card.id)) {
+        // Only a CLOSED statement is a real bill, and only one that is due this month or later (older ones were settled long ago).
+        if (s.mineTotal > 0 && s.statementDate <= today && s.dueDate >= firstDayOfMonth(thisMonth)) {
+          insertBillRow(db, s.card, s)
+          changed++
+        }
+        continue
+      }
       if (!open.some((c) => c.id === s.card.id)) continue
       const id = cardBillId(s.card.id, month)
       const now = nowIso()
@@ -437,4 +469,19 @@ export function reorderCards(db: Db, ids: string[]): number {
     })
     return changed
   })
+}
+
+/**
+ * Charges that already exist on this card with the same title and amount in the same statement as `input`
+ * (used to warn before saving a charge that was probably entered already, or is made by a repeating charge).
+ */
+export function findDuplicateChargesOf(db: Db, input: ChargeInput, excludeId: string | null): CardCharge[] {
+  const card = getCard(db, input.cardId)
+  const month = billMonthFor(input.chargeDate, card.statementDay)
+  // A repeating charge of that month may not have been created yet: create it first so it is part of the comparison.
+  ensureCardRecurringForMonth(db, input.chargeDate.slice(0, 7))
+  const wanted = normalizeTitle(input.title)
+  return all(db, 'SELECT * FROM card_charges WHERE card_id = ? AND bill_month = ? AND amount_satang = ? AND deleted_at IS NULL', input.cardId, month, input.amountSatang)
+    .map(toCharge)
+    .filter((c) => c.id !== excludeId && normalizeTitle(c.title) === wanted)
 }

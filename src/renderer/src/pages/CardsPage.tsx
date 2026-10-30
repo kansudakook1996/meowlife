@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 import { addDays, addMonths, formatThaiDate, formatThaiMonth, monthsBetween, todayIso } from '@shared/dates'
 import {
+  normalizeTitle,
   planText,
   statementDateFor,
   type CardCharge,
@@ -31,7 +32,7 @@ type Editing =
 export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: boolean }): React.JSX.Element {
   const { month, setMonth, dataVersion, refresh, toast } = usePortal()
   const [editing, setEditing] = useState<Editing>(startAddingCharge ? { type: 'charge', cardId: null, charge: null } : null)
-  const { data, error } = useLoad(`cards:${month}:${dataVersion}`, () => unwrap(meow().portal.cards.overview(month)))
+  const { data, error, loading } = useLoad(`cards:${month}:${dataVersion}`, () => unwrap(meow().portal.cards.overview(month)))
   const { data: allCards } = useLoad(`cards-all:${dataVersion}`, () => unwrap(meow().portal.cards.list()))
   const delCharge = useDeleteWithUndo((id) => unwrap(meow().portal.cards.charges.remove(id)), (id) => unwrap(meow().portal.cards.charges.restore(id)), refresh)
   const delPlan = useDeleteWithUndo((id) => unwrap(meow().portal.cards.plans.remove(id)), (id) => unwrap(meow().portal.cards.plans.restore(id)), refresh)
@@ -92,11 +93,12 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
   const [dragCardId, setDragCardId] = useState<string | null>(null)
   const savedCards = useMemo(() => data?.cards ?? [], [data])
   const orderedCards = useMemo(() => {
-    if (!liveIds) return savedCards
+    // Keep showing the dropped order until the saved one has been reloaded (no flash back to the old order).
+    if (!liveIds || !(dragCardId !== null || loading)) return savedCards
     const byId = new Map(savedCards.map((c) => [c.card.id, c]))
     const live = liveIds.map((id) => byId.get(id)).filter((c): c is CardStatementView => c !== undefined)
     return live.length === savedCards.length ? live : savedCards
-  }, [savedCards, liveIds])
+  }, [savedCards, liveIds, dragCardId, loading])
 
   const saveCardOrder = async (ids: string[]): Promise<void> => {
     try {
@@ -141,7 +143,7 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
       window.removeEventListener('pointerup', onEnd)
       window.removeEventListener('pointercancel', onEnd)
       setDragCardId(null)
-      if (current.some((x, i) => x !== start[i])) void saveCardOrder(current).finally(() => setLiveIds(null))
+      if (current.some((x, i) => x !== start[i])) void saveCardOrder(current)
       else setLiveIds(null)
     }
     window.addEventListener('pointermove', onMove)
@@ -212,6 +214,7 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
           key={s.card.id}
           s={s}
           dragging={dragCardId === s.card.id}
+          ledgerRuleTitles={data?.ledgerRuleTitles ?? []}
           compact={dragCardId !== null}
           onGripPointerDown={(e) => startCardDrag(e, s.card.id)}
           onMoveCard={(d) => moveCard(s.card.id, d)}
@@ -244,7 +247,7 @@ export function CardsPage({ startAddingCharge = false }: { startAddingCharge?: b
           <ChargeForm key={editing.charge?.id ?? `new-${editing.cardId}`} cards={allCards.filter((c) => c.isActive)} initialCardId={editing.cardId} initial={editing.charge} month={month} categoryNames={categoryNames} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกยอดใช้จ่ายแล้ว') }} />
         )}
         {editing?.type === 'recurring' && (
-          <RecurringForm key={editing.rule?.id ?? `new-${editing.cardId}`} cardId={editing.cardId} rule={editing.rule} categoryNames={categoryNames} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกรายการประจำแล้ว') }} />
+          <RecurringForm key={editing.rule?.id ?? `new-${editing.cardId}`} cardId={editing.cardId} rule={editing.rule} ledgerRuleTitles={data?.ledgerRuleTitles ?? []} categoryNames={categoryNames} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกรายการประจำแล้ว') }} />
         )}
         {editing?.type === 'plan' && (
           <PlanForm key={editing.line?.plan.id ?? `new-${editing.cardId}`} cardId={editing.cardId} line={editing.line} month={month} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); refresh(); toast('บันทึกรายการผ่อนแล้ว') }} />
@@ -275,6 +278,7 @@ function CardSection(props: {
   onDeleteRecurring: (r: CardRecurring) => void
   onPartnerPaid: (paid: boolean) => void
   onPaid: (paid: boolean) => void
+  ledgerRuleTitles: string[]
   dragging: boolean
   /** While any card is being dragged every card folds to its title row, so they all fit on screen and can be passed over. */
   compact: boolean
@@ -356,6 +360,11 @@ function CardSection(props: {
         <button type="button" className="icon-btn" aria-label={`ลบบัตร ${s.card.name}`} title="ลบบัตร" onClick={props.onDeleteCard}>🗑️</button>
       </div>
 
+      {s.duplicates.ids.length > 0 && (
+        <div className="alert" role="status" style={{ marginBottom: 12 }}>
+          มี {s.duplicates.ids.length} รายการในรอบนี้ที่ชื่อและยอดซ้ำกัน (ป้าย "อาจซ้ำ") ถ้าเป็นรายการเดียวกัน ยอดจะนับเกินไป {formatSatang(s.duplicates.excessSatang)} ลบรายการที่ซ้ำออกได้เลย (มักเกิดจากจดเองซ้ำกับรายการประจำของบัตร)
+        </div>
+      )}
       {s.bill?.isPaid && s.bill.amountSatang !== s.mineTotal && (
         <div className="alert" role="status" style={{ marginBottom: 12 }}>
           บิลที่จ่ายไปแล้ว {formatSatang(s.bill.amountSatang)} ไม่ตรงกับยอดรอบนี้ {formatSatang(s.mineTotal)} (มีรายการเพิ่มหรือแก้หลังจากกดจ่าย) ถ้ายังไม่ได้จ่ายส่วนต่าง กด “ยกเลิกจ่าย” แล้วกด “จ่ายแล้ว” ใหม่เพื่อปรับยอดให้ตรง
@@ -398,6 +407,7 @@ function CardSection(props: {
                   <span>ทุกวันที่ {r.dayOfMonth}</span>
                   {r.category && <span className="badge badge-unpaid">{r.category}</span>}
                   {r.partnerSatang > 0 && <PartnerBadge share={r.partnerSatang} total={r.amountSatang} />}
+                  {props.ledgerRuleTitles.includes(normalizeTitle(r.title)) && <span className="badge badge-overdue" title="มีรายการประจำชื่อเดียวกันในหน้า รายการประจำ ด้วย"><span aria-hidden="true">!</span> ซ้ำกับหน้ารายการประจำ</span>}
                   <span>{formatThaiMonth(r.startMonth)} ถึง {r.endMonth ? formatThaiMonth(r.endMonth) : 'ไม่กำหนดสิ้นสุด'}</span>
                 </div>
               </div>
@@ -423,7 +433,7 @@ function CardSection(props: {
               <li key={c.id} className="tx-row" style={{ gridTemplateColumns: 'minmax(0, 1fr) auto auto' }}>
                 <div className="tx-main">
                   <div className="tx-title">{c.title}</div>
-                  <div className="tx-meta"><span>{formatThaiDate(c.chargeDate)}</span>{c.category && <span className="badge badge-unpaid">{c.category}</span>}{c.partnerSatang > 0 && <PartnerBadge share={c.partnerSatang} total={c.amountSatang} />}{c.note && <span>{c.note}</span>}</div>
+                  <div className="tx-meta"><span>{formatThaiDate(c.chargeDate)}</span>{c.category && <span className="badge badge-unpaid">{c.category}</span>}{s.duplicates.ids.includes(c.id) && <span className="badge badge-overdue" title="มีรายการชื่อและยอดเดียวกันในรอบนี้"><span aria-hidden="true">!</span> อาจซ้ำ</span>}{c.partnerSatang > 0 && <PartnerBadge share={c.partnerSatang} total={c.amountSatang} />}{c.note && <span>{c.note}</span>}</div>
                 </div>
                 <span className="tx-amount expense">{formatSatang(c.amountSatang)}</span>
                 <span className="tx-actions">
@@ -557,6 +567,9 @@ function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; 
   const [partner, setPartner] = useState(c?.partnerSatang ? satangToInput(c.partnerSatang) : '')
   const [note, setNote] = useState(c?.note ?? '')
   const [error, setError] = useState<string | null>(null)
+  const [dupWarning, setDupWarning] = useState<string | null>(null)
+  /** What the user already chose to save twice, so the warning is not shown again for the same entry. */
+  const [acknowledged, setAcknowledged] = useState('')
 
   const submit = async (e: FormEvent): Promise<void> => {
     e.preventDefault()
@@ -567,7 +580,16 @@ function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; 
     const partnerSatang = parsePartner(partner, amountSatang)
     if (partnerSatang === null) return setError('ส่วนของแฟนอ่านไม่ได้ หรือเกินยอดทั้งหมด')
     const input = { cardId, chargeDate: date, title: title.trim(), category: category.trim(), amountSatang, partnerSatang, note: note.trim() }
+    const signature = `|||`
     try {
+      if (acknowledged !== signature) {
+        const twins = await unwrap(meow().portal.cards.charges.duplicates(input, c?.id ?? null))
+        if (twins.length > 0) {
+          setAcknowledged(signature)
+          setDupWarning(`มียอด "${title.trim()}" ${formatSatang(amountSatang)} ในรอบบิลนี้อยู่แล้ว ${twins.length} รายการ (อาจจดซ้ำ หรือรายการประจำของบัตรสร้างให้แล้ว) ถ้าเป็นคนละรายการจริง กด "บันทึก" อีกครั้ง`)
+          return
+        }
+      }
       if (c) await unwrap(meow().portal.cards.charges.update(c.id, input))
       else await unwrap(meow().portal.cards.charges.create(input))
       props.onSaved()
@@ -579,6 +601,7 @@ function ChargeForm(props: { cards: CreditCard[]; initialCardId: string | null; 
   return (
     <form className="form" onSubmit={(e) => void submit(e)} noValidate>
       {error && <div className="alert" role="alert">{error}</div>}
+      {dupWarning && <div className="alert" role="alert">{dupWarning}</div>}
       <div className="field-row">
         <div className="field">
           <label htmlFor="ch-card">บัตร</label>
@@ -693,7 +716,7 @@ function CategorySelect(props: { id: string; value: string; names: string[]; onC
   )
 }
 
-function RecurringForm(props: { cardId: string; rule: CardRecurring | null; categoryNames: string[]; onCancel: () => void; onSaved: () => void }): React.JSX.Element {
+function RecurringForm(props: { cardId: string; rule: CardRecurring | null; ledgerRuleTitles: string[]; categoryNames: string[]; onCancel: () => void; onSaved: () => void }): React.JSX.Element {
   const r = props.rule
   const [title, setTitle] = useState(r?.title ?? '')
   const [category, setCategory] = useState(r?.category ?? '')
@@ -733,6 +756,9 @@ function RecurringForm(props: { cardId: string; rule: CardRecurring | null; cate
         <label htmlFor="rc-title">รายการ</label>
         <input id="rc-title" className="input" autoFocus maxLength={80} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น ค่าไฟ, Netflix, ค่าอินเทอร์เน็ต" />
       </div>
+      {title.trim() !== '' && props.ledgerRuleTitles.includes(normalizeTitle(title)) && (
+        <p className="alert" role="status">มีรายการประจำชื่อ "{title.trim()}" ในหน้า รายการประจำ อยู่แล้ว ถ้าเป็นบิลเดียวกันที่จ่ายผ่านบัตรนี้ ให้เก็บไว้ที่เดียว (ลบอีกที่ออก) ไม่งั้นยอดจะนับสองรอบ</p>
+      )}
       <CategorySelect id="rc-cat" value={category} names={props.categoryNames} onChange={setCategory} />
       <div className="field-row">
         <div className="field">
