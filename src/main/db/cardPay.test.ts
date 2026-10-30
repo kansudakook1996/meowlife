@@ -4,7 +4,7 @@ import { cardAnalytics } from './cardAnalytics'
 import { cardBillId, createCard, listCards, reorderCards, createCardBill, createCharge, createPlan, refreshCardBills, setCardPaid, setPartnerPaid } from './cardRepo'
 import { openMemoryDatabase, type Db } from './connection'
 import { DEFAULT_CATEGORIES } from './defaults'
-import { createTransaction, getTransaction, listMonth } from './transactionRepo'
+import { createTransaction, getTransaction, listMonth, removeTransaction } from './transactionRepo'
 
 const TODAY = '2026-10-29'
 let db: Db
@@ -33,6 +33,21 @@ describe('paying a card statement', () => {
     expect(bill).toMatchObject({ isPaid: true, paidDate: TODAY, kind: 'expense', amountSatang: 100_000 })
     expect(setCardPaid(db, c.id, '2026-10', false, TODAY)).toMatchObject({ isPaid: false })
     expect(getTransaction(db, r.transactionId, TODAY).isPaid).toBe(false)
+  })
+
+  it('can pay again after the user deleted the paid bill from the ledger (a real report: the pay button did nothing)', () => {
+    const c = card()
+    charge(c.id, 100_000)
+    const first = setCardPaid(db, c.id, '2026-10', true, TODAY)
+    removeTransaction(db, first.transactionId) // deleted in the ledger, still marked paid underneath
+    charge(c.id, 50_000)
+    const again = setCardPaid(db, c.id, '2026-10', true, TODAY)
+    expect(again).toMatchObject({ isPaid: true, amountSatang: 150_000 })
+    expect(listMonth(db, '2026-11', TODAY).filter((t) => t.id === first.transactionId)).toHaveLength(1)
+    // and the plain "create bill" button works on a deleted bill too
+    removeTransaction(db, first.transactionId)
+    expect(createCardBill(db, c.id, '2026-10', TODAY)).toMatchObject({ action: 'created', amountSatang: 150_000 })
+    expect(getTransaction(db, first.transactionId, TODAY).isPaid).toBe(false)
   })
 
   it('cannot "pay" a statement that is empty or fully the partner\'s', () => {

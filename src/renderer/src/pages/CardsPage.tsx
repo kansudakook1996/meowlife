@@ -356,6 +356,11 @@ function CardSection(props: {
         <button type="button" className="icon-btn" aria-label={`ลบบัตร ${s.card.name}`} title="ลบบัตร" onClick={props.onDeleteCard}>🗑️</button>
       </div>
 
+      {s.bill?.isPaid && s.bill.amountSatang !== s.mineTotal && (
+        <div className="alert" role="status" style={{ marginBottom: 12 }}>
+          บิลที่จ่ายไปแล้ว {formatSatang(s.bill.amountSatang)} ไม่ตรงกับยอดรอบนี้ {formatSatang(s.mineTotal)} (มีรายการเพิ่มหรือแก้หลังจากกดจ่าย) ถ้ายังไม่ได้จ่ายส่วนต่าง กด “ยกเลิกจ่าย” แล้วกด “จ่ายแล้ว” ใหม่เพื่อปรับยอดให้ตรง
+        </div>
+      )}
       {s.partnerTotal > 0 && (
         <div className="info" style={{ marginBottom: 12 }}>
           <div>

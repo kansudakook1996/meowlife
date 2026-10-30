@@ -318,9 +318,18 @@ export function createCardBill(db: Db, cardId: string, month: string, today: str
   const id = cardBillId(cardId, month)
   const title = billTitle(card.name, month, formatThaiMonth)
   const categoryId = (one(db, 'SELECT id FROM categories WHERE id = ? AND deleted_at IS NULL', DEFAULT_CATEGORIES.find((c) => c.name === 'บัตรเครดิต')?.id ?? '') as { id: string } | undefined)?.id ?? null
-  const existing = one(db, 'SELECT is_paid FROM transactions WHERE id = ?', id)
+  const existing = one(db, 'SELECT is_paid, deleted_at FROM transactions WHERE id = ?', id)
   const now = nowIso()
 
+  if (existing && existing['deleted_at'] !== null) {
+    // The user deleted this bill from the ledger earlier (it may even have been paid). Start over with a fresh unpaid bill
+    // instead of treating the deleted row as "already paid", which left the card without any way to pay it.
+    db.prepare(
+      `UPDATE transactions SET title = ?, amount_satang = ?, txn_date = ?, due_date = ?, category_id = ?, is_paid = 0, paid_date = NULL,
+         note = ?, deleted_at = NULL, updated_at = ?, dirty = 1 WHERE id = ?`
+    ).run(title, mine, statement.dueDate, statement.dueDate, categoryId, note, now, id)
+    return { action: 'created', transactionId: id, amountSatang: mine }
+  }
   if (existing && existing['is_paid'] === 1) {
     return { action: 'paid', transactionId: id, amountSatang: getTransaction(db, id, today).amountSatang }
   }
