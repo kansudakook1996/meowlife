@@ -4,6 +4,7 @@ import { formatSatang, sumSatang } from '@shared/money'
 import type { StatusFilter } from '@shared/schemas'
 import type { TransactionView } from '@shared/types'
 import { EmptyState } from '../components/EmptyState'
+import { MonthHealthBanner } from '../components/MonthHealthBanner'
 import { MonthPicker } from '../components/MonthPicker'
 import { TransactionRow } from '../components/TransactionRow'
 import { errorMessage } from '../lib/api'
@@ -83,6 +84,9 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
     return live.length === saved.length ? live : saved
   }, [saved, liveIds, dragId, loading])
 
+  // The month's own totals, whatever the filters below show.
+  const { data: monthSummary } = useLoad(`summary:${month}:${dataVersion}`, () => unwrap(meow().summary.month(month)))
+
   const filtered = kind !== 'all' || status !== 'all' || categoryId !== '' || search.trim() !== ''
   const income = data ? sumSatang(data.filter((t) => t.kind === 'income').map((t) => t.amountSatang)) : 0
   const expense = data ? sumSatang(data.filter((t) => t.kind === 'expense').map((t) => t.amountSatang)) : 0
@@ -154,6 +158,38 @@ export function TransactionsPage({ searchFocusSignal, initialSearch = '' }: { se
           </button>
         </div>
       </header>
+
+      {monthSummary && (
+        <>
+          <MonthHealthBanner summary={monthSummary} />
+          <section className="summary-grid compact" aria-label={`สรุปยอดของ${formatThaiMonth(month)}`}>
+            <div className="summary-card summary-income">
+              <span className="label">💰 รายรับเดือนนี้</span>
+              <span className="value">{formatSatang(monthSummary.incomeTotal)}</span>
+              <span className="muted small">ได้รับแล้ว {formatSatang(monthSummary.incomeReceived)}</span>
+            </div>
+            <div className="summary-card summary-expense">
+              <span className="label">💸 รายจ่ายเดือนนี้</span>
+              <span className="value">{formatSatang(monthSummary.expenseTotal)}</span>
+              <span className="muted small">จ่ายแล้ว {formatSatang(monthSummary.expensePaid)}</span>
+              {monthSummary.excludedTotal > 0 && <span className="muted small">ไม่นับเป็นรายจ่าย {formatSatang(monthSummary.excludedTotal)}</span>}
+            </div>
+            <div className="summary-card summary-balance">
+              <span className="label">🐷 คงเหลือ</span>
+              <span className={monthSummary.balance < 0 ? 'value negative' : 'value'}>
+                {monthSummary.balance < 0 ? '− ' : ''}
+                {formatSatang(Math.abs(monthSummary.balance))}
+              </span>
+              <span className="muted small">{monthSummary.balance < 0 ? 'ติดลบ: ใช้เกินรายรับ' : 'รายรับ − รายจ่าย'}</span>
+            </div>
+            <div className="summary-card summary-outstanding">
+              <span className="label">🧾 ค้างชำระ</span>
+              <span className="value">{formatSatang(monthSummary.outstanding)}</span>
+              <span className="muted small">{monthSummary.overdueCount > 0 ? `เกินกำหนด ${monthSummary.overdueCount} รายการ` : 'ไม่มีรายการเกินกำหนด'}</span>
+            </div>
+          </section>
+        </>
+      )}
 
       <section className="toolbar" aria-label="ตัวกรอง">
         <div className="segmented" role="group" aria-label="ประเภท">

@@ -84,6 +84,22 @@ test('add income and a bill, see totals, data survives restart', async () => {
   await expect(page.getByRole('button', { name: 'ลบ ค่าไฟ' })).toBeVisible()
   await page.screenshot({ path: 'test-results/03-transactions.png' })
 
+  // The ledger page opens with the month's summary and a verdict: 25,000 in, 1,234.56 out = healthy
+  const health = page.getByRole('region', { name: 'สถานะการเงินของเดือนนี้' })
+  await expect(health).toContainText('สถานะการเงินดี')
+  await expect(page.getByRole('region', { name: /^สรุปยอดของ/ })).toContainText('฿23,765.44')
+  // spending above income turns it into a warning
+  await page.keyboard.press('Control+n')
+  await dialog.getByLabel('ชื่อรายการ').fill('ซื้อของใหญ่')
+  await dialog.getByLabel('จำนวนเงิน (บาท)').fill('30000')
+  await dialog.getByRole('button', { name: 'บันทึก' }).click()
+  await expect(health).toContainText('เดือนนี้ติดลบ')
+  await expect(health).toContainText('฿6,234.56') // 31,234.56 spent − 25,000 earned
+  await page.screenshot({ path: 'test-results/03b-deficit-warning.png' })
+  await page.getByRole('button', { name: 'ลบ ซื้อของใหญ่' }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'ลบรายการ' }).click()
+  await expect(health).toContainText('สถานะการเงินดี')
+
   // Restart the app: data must still be there
   await app.close()
   ;({ app, page } = await launch())
@@ -119,6 +135,8 @@ test('ledger items can be dragged into order of importance; the order survives a
 
   /** Press on a row's title and drag it onto the first row. */
   const dragToTop = async (index: number): Promise<void> => {
+    await rows.last().scrollIntoViewIfNeeded()
+    await rows.first().scrollIntoViewIfNeeded()
     const grab = await rows.nth(index).locator('.tx-title').boundingBox()
     const target = await rows.first().boundingBox()
     expect(grab && target).toBeTruthy()

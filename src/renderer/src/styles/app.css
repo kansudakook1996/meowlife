@@ -1095,6 +1095,52 @@ kbd {
 .summary-balance .negative {
   color: #7d1710;
 }
+.summary-grid.compact {
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.summary-grid.compact .summary-card {
+  padding: 6px 12px;
+  gap: 0;
+}
+.summary-grid.compact .summary-card .value {
+  font-size: 1.15rem;
+}
+.summary-grid.compact .summary-card .muted {
+  display: none;
+}
+.health {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  border: 2px solid var(--navy);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  color: var(--navy);
+  line-height: 1.6;
+}
+.health p {
+  margin: 2px 0 0;
+}
+.health-icon {
+  font-size: 1.5rem;
+}
+.health-deficit {
+  background: var(--red-100);
+  border-color: var(--red-600);
+  color: var(--red-600);
+}
+.health-tight {
+  background: var(--yellow-100);
+}
+.health-ok {
+  background: var(--blue-100);
+}
+.health-great {
+  background: var(--green-100);
+}
 .tx-icon.income {
   background: var(--sky);
 }

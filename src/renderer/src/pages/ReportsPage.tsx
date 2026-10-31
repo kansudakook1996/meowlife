@@ -2,6 +2,7 @@ import { addMonths, formatThaiMonth } from '@shared/dates'
 import { formatSatang } from '@shared/money'
 import { categoryChanges, trendInsights } from '@shared/trend'
 import { CatMascot } from '../components/CatMascot'
+import { MonthHealthBanner } from '../components/MonthHealthBanner'
 import { MonthPicker } from '../components/MonthPicker'
 import { PartnerChart } from '../components/PartnerChart'
 import { SpendingPie } from '../components/SpendingPie'
@@ -46,6 +47,7 @@ export function ReportsPage(): React.JSX.Element {
 
       {data && (
         <>
+          <MonthHealthBanner summary={data.summary} />
           <section className="summary-grid" aria-label="สรุปเดือนนี้">
             <div className="summary-card summary-income">
               <span className="label">💰 รายรับ</span>
