@@ -189,12 +189,18 @@ test('pay a card from the card page: the ledger gets a paid bill with the card n
   await expect(pie).toContainText('ผ่อนชำระบัตรเครดิต')
   await expect(pie).not.toContainText('ชำระบัตร KTC')
   await expect(page.getByRole('img', { name: /กราฟวงกลมสัดส่วนการใช้จ่ายของเรา รวม ฿2,250.00/ })).toBeVisible()
-  await expect(page.getByRole('heading', { name: /แฟนโอนเงินให้/ })).toBeVisible()
-  await expect(page.getByRole('table', { name: 'ยอดที่แฟนโอนให้รายเดือน' })).toContainText('฿1,000.00')
+  // there is no partner chart any more: the report is about our own money only
+  await expect(page.getByRole('heading', { name: /แฟนโอนเงินให้/ })).toHaveCount(0)
+  // the month split by where it came from, and the six-month table of the same
+  await expect(page.getByRole('heading', { name: /แยกตามที่มา/ }).first()).toBeVisible()
+  await expect(page.getByRole('region', { name: /^ผ่อนบัตรเครดิต: / })).toBeVisible()
+  const history = page.getByRole('table', { name: 'รายจ่ายของเราแต่ละเดือนแยกตามที่มา' })
+  await expect(history.locator('tbody tr')).toHaveCount(6)
+  await expect(history).toContainText('฿2,250.00') // the month's total: the partner's 1,000 is not in it
   await page.getByRole('heading', { name: /สัดส่วนการใช้จ่ายจริงของเรา/ }).scrollIntoViewIfNeeded()
   await page.screenshot({ path: 'test-results/20-reports-charts.png' })
-  await page.getByRole('heading', { name: /แฟนโอนเงินให้/ }).scrollIntoViewIfNeeded()
-  await page.screenshot({ path: 'test-results/20b-reports-partner.png' })
+  await page.getByRole('heading', { name: /รายจ่ายของเรา.*แยกตามที่มา/ }).first().scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'test-results/20b-reports-sources.png' })
 
   await nav('บัตรเครดิต').click()
   await page.getByRole('button', { name: 'เดือนก่อน' }).click()

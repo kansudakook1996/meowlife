@@ -1,17 +1,21 @@
 import { addMonths } from '@shared/dates'
-import type { CardAnalytics, PartnerMonth, SpendingSlice } from '@shared/analytics'
+import { groupSpending, type CardAnalytics, type SpendLine } from '@shared/analytics'
 import type { CardsOverview } from '@shared/cards'
-import { buildOverview, cardBillId, ensureCardRecurringForMonth, listCards } from './cardRepo'
+import { buildOverview, cardBillId, ensureCardRecurringForMonth, listCards, recurringChargeId } from './cardRepo'
 import type { Db } from './connection'
 import { listMonth } from './transactionRepo'
 
 const NO_CATEGORY = 'ไม่ระบุหมวด'
+const INSTALLMENT_CATEGORY = 'ผ่อนชำระบัตรเครดิต'
 
-const PARTNER_MONTHS = 6
+/** How many months the report looks back, the viewed month included. */
+export const REPORT_MONTHS = 6
 
 /**
- * Numbers for the two charts. Everything is on a "when the money leaves" basis, the same as the ledger: a card statement
- * counts in the month its bill is DUE. Money the partner pays (whole items or a share) is taken out of the spending pie.
+ * Numbers for the report. Everything is on a "when the money leaves" basis, the same as the ledger: a card statement
+ * counts in the month its bill is DUE. Only OUR money counts: whatever the partner pays (whole items or a share) is left out,
+ * and so are categories marked "not counted as spending". Each piece is tagged with where it came from (card / instalment /
+ * repeating item / other) so a month can be split by source as well as by category.
  */
 export function cardAnalytics(db: Db, month: string, today: string): CardAnalytics {
   const cards = listCards(db).filter((c) => c.isActive)
@@ -33,52 +37,43 @@ export function cardAnalytics(db: Db, month: string, today: string): CardAnalyti
     return { billMonth, statement: overviewOf(billMonth).cards.find((s) => s.card.id === cardId) }
   }
 
-  // ---- spending pie: ledger (minus card bills) + our share of what is on the cards ----
-  const totals = new Map<string, SpendingSlice>()
-  const add = (name: string, icon: string, satang: number): void => {
-    if (satang <= 0) return
-    const cur = totals.get(name)
-    if (excludedNames.has(name)) return
-    if (cur) cur.totalSatang += satang
-    else totals.set(name, { name, icon, totalSatang: satang })
-  }
   const categoryRows = db.prepare("SELECT name, icon, excluded FROM categories WHERE deleted_at IS NULL AND kind = 'expense'").all() as unknown as Array<{ name: string; icon: string; excluded: number }>
   const iconOf = new Map<string, string>(categoryRows.map((r) => [r.name, r.icon]))
-  // Categories that are not counted as spending (savings…) stay out of the pie, whether they come from the ledger or a card.
+  // Categories that are not counted as spending (savings…) stay out, whether they come from the ledger or a card.
   const excludedNames = new Set(categoryRows.filter((r) => r.excluded === 1).map((r) => r.name))
+  // Card charges made by a repeating rule have a fixed id per rule and month, so they can be told apart from hand-typed ones.
+  const ruleIds = (db.prepare('SELECT id FROM card_recurring').all() as unknown as Array<{ id: string }>).map((r) => r.id)
 
-  const billIds = new Set<string>()
-  for (const card of cards) {
-    const { billMonth, statement } = statementDueIn(card.id, month)
-    billIds.add(cardBillId(card.id, billMonth))
-    if (!statement) continue
-    for (const c of statement.charges) {
-      const name = c.category || NO_CATEGORY
-      add(name, iconOf.get(name) ?? '💳', c.amountSatang - c.partnerSatang)
+  const linesOf = (m: string): SpendLine[] => {
+    const lines: SpendLine[] = []
+    const push = (source: SpendLine['source'], category: string, icon: string, satang: number, label = category, labelIcon = icon): void => {
+      if (satang > 0 && !excludedNames.has(category)) lines.push({ source, category, icon, label, labelIcon, satang })
     }
-    for (const line of statement.installments) add('ผ่อนชำระบัตรเครดิต', '📅', line.amountThisMonth - line.partnerThisMonth)
-  }
-  for (const t of listMonth(db, month, today)) {
-    if (t.kind !== 'expense' || billIds.has(t.id)) continue
-    const name = t.categoryName ?? NO_CATEGORY
-    add(name, t.categoryIcon ?? '🏷️', t.amountSatang)
-  }
-  const spending = [...totals.values()].sort((a, b) => b.totalSatang - a.totalSatang)
-
-  // ---- partner bars ----
-  const partnerMonths: PartnerMonth[] = []
-  for (let i = PARTNER_MONTHS - 1; i >= 0; i--) {
-    const m = addMonths(month, -i)
-    let owed = 0
-    let paid = 0
+    const billIds = new Set<string>()
     for (const card of cards) {
-      const { statement } = statementDueIn(card.id, m)
+      const { billMonth, statement } = statementDueIn(card.id, m)
+      billIds.add(cardBillId(card.id, billMonth))
       if (!statement) continue
-      owed += statement.partnerTotal
-      paid += statement.partnerPayment?.amountSatang ?? 0
+      const repeating = new Set(ruleIds.flatMap((id) => [recurringChargeId(id, addMonths(billMonth, -1)), recurringChargeId(id, billMonth)]))
+      for (const c of statement.charges) {
+        const name = c.category || NO_CATEGORY
+        push(repeating.has(c.id) ? 'recurring' : 'card', name, iconOf.get(name) ?? '💳', c.amountSatang - c.partnerSatang)
+      }
+      for (const line of statement.installments) {
+        push('installment', INSTALLMENT_CATEGORY, '📅', line.amountThisMonth - line.partnerThisMonth, line.plan.title)
+      }
     }
-    partnerMonths.push({ month: m, owedSatang: owed, paidSatang: paid })
+    for (const t of listMonth(db, m, today)) {
+      if (t.kind !== 'expense' || billIds.has(t.id)) continue
+      push(t.recurringRuleId ? 'recurring' : 'other', t.categoryName ?? NO_CATEGORY, t.categoryIcon ?? '🏷️', t.amountSatang)
+    }
+    return lines
   }
 
-  return { month, spending, spendingTotal: spending.reduce((s, x) => s + x.totalSatang, 0), partnerMonths }
+  const months = Array.from({ length: REPORT_MONTHS }, (_, i) => {
+    const m = addMonths(month, i - (REPORT_MONTHS - 1))
+    return groupSpending(m, linesOf(m))
+  })
+  const current = months[months.length - 1]!
+  return { month, spending: current.categories, spendingTotal: current.totalSatang, months }
 }

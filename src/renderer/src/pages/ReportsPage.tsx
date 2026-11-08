@@ -4,7 +4,8 @@ import { categoryChanges, trendInsights } from '@shared/trend'
 import { CatMascot } from '../components/CatMascot'
 import { MonthHealthBanner } from '../components/MonthHealthBanner'
 import { MonthPicker } from '../components/MonthPicker'
-import { PartnerChart } from '../components/PartnerChart'
+import { SpendBySource } from '../components/SpendBySource'
+import { SpendHistory } from '../components/SpendHistory'
 import { SpendingPie } from '../components/SpendingPie'
 import { TrendChart } from '../components/TrendChart'
 import { meow, unwrap } from '../lib/api'
@@ -26,7 +27,10 @@ export function ReportsPage(): React.JSX.Element {
   })
 
   const insights = data ? trendInsights(data.trend) : []
-  const changes = data ? categoryChanges(data.summary.expenseByCategory, data.previous.expenseByCategory) : []
+  const thisMonth = data?.analytics.months.at(-1)
+  const lastMonth = data?.analytics.months.at(-2)
+  // Compared on OUR real spending (card statements split into what they are made of), not on the card bill as one lump.
+  const changes = thisMonth && lastMonth ? categoryChanges(thisMonth.categories, lastMonth.categories) : []
 
   return (
     <div className="page">
@@ -69,24 +73,29 @@ export function ReportsPage(): React.JSX.Element {
             </div>
           </section>
 
-          <section className="card" aria-labelledby="trend-title">
+          {thisMonth && (
+            <section className="card" aria-labelledby="source-title">
+              <div className="card-title">
+                <h2 id="source-title">🗂️ รายจ่ายของเรา {formatThaiMonth(month)} แยกตามที่มา</h2>
+                <strong>{formatSatang(thisMonth.totalSatang)}</strong>
+              </div>
+              <p className="muted small" style={{ marginBottom: 10 }}>
+                นับเฉพาะเงินของเรา (ไม่รวมส่วนที่แฟนจ่าย และหมวดที่ตั้งเป็น "ไม่นับเป็นรายจ่าย") ยอดบัตรนับในเดือนที่บิลครบกำหนด
+              </p>
+              <SpendBySource spend={thisMonth} />
+            </section>
+          )}
+
+          <section className="card" aria-labelledby="history-title">
             <div className="card-title">
-              <h2 id="trend-title">📈 แนวโน้ม {TREND_MONTHS} เดือน</h2>
+              <h2 id="history-title">📆 รายจ่ายของเราแต่ละเดือน แยกตามที่มา</h2>
             </div>
-            <TrendChart months={data.trend} />
-            <div className="greeting" style={{ marginTop: 14, boxShadow: 'none', background: 'var(--bg)' }}>
-              <CatMascot mood="happy" size={80} />
-              <ul style={{ margin: 0, paddingLeft: 18 }}>
-                {insights.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            </div>
+            <SpendHistory months={data.analytics.months} />
           </section>
 
           <section className="card" aria-labelledby="pie-title">
             <div className="card-title">
-              <h2 id="pie-title">🥧 สัดส่วนการใช้จ่ายจริงของเรา</h2>
+              <h2 id="pie-title">🥧 สัดส่วนการใช้จ่ายจริงของเรา แยกตามหมวด</h2>
             </div>
             {data.analytics.spending.length === 0 ? (
               <p className="muted">ยังไม่มีรายจ่ายในเดือนนี้</p>
@@ -100,18 +109,9 @@ export function ReportsPage(): React.JSX.Element {
             )}
           </section>
 
-          {data.analytics.partnerMonths.some((m) => m.owedSatang > 0) && (
-            <section className="card" aria-labelledby="partner-title">
-              <div className="card-title">
-                <h2 id="partner-title">💞 แฟนโอนเงินให้ {data.analytics.partnerMonths.length} เดือน</h2>
-              </div>
-              <PartnerChart months={data.analytics.partnerMonths} />
-            </section>
-          )}
-
           <section className="card" aria-labelledby="catrep-title">
             <div className="card-title">
-              <h2 id="catrep-title">📊 รายจ่ายตามหมวด เทียบเดือนก่อน</h2>
+              <h2 id="catrep-title">📊 หมวดที่ใช้ เทียบเดือนก่อน</h2>
             </div>
             {changes.length === 0 ? (
               <p className="muted">ยังไม่มีรายจ่ายในสองเดือนนี้</p>
@@ -129,7 +129,7 @@ export function ReportsPage(): React.JSX.Element {
                   </thead>
                   <tbody>
                     {changes.map((c) => {
-                      const share = data.summary.expenseTotal > 0 ? Math.round((c.current / data.summary.expenseTotal) * 100) : 0
+                      const share = thisMonth && thisMonth.totalSatang > 0 ? Math.round((c.current / thisMonth.totalSatang) * 100) : 0
                       return (
                         <tr key={c.name}>
                           <td>{c.name}</td>
@@ -146,6 +146,21 @@ export function ReportsPage(): React.JSX.Element {
                 </table>
               </div>
             )}
+          </section>
+
+          <section className="card" aria-labelledby="trend-title">
+            <div className="card-title">
+              <h2 id="trend-title">📈 รายรับ-รายจ่าย {TREND_MONTHS} เดือน</h2>
+            </div>
+            <TrendChart months={data.trend} />
+            <div className="greeting" style={{ marginTop: 14, boxShadow: 'none', background: 'var(--bg)' }}>
+              <CatMascot mood="happy" size={80} />
+              <ul style={{ margin: 0, paddingLeft: 18 }}>
+                {insights.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            </div>
           </section>
         </>
       )}

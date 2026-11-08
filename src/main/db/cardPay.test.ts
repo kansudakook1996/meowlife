@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { foldSlices } from '@shared/analytics'
 import { cardAnalytics } from './cardAnalytics'
-import { cardBillId, createCard, listCards, reorderCards, createCardBill, createCharge, createPlan, refreshCardBills, setCardPaid, setPartnerPaid } from './cardRepo'
+import { cardBillId, createCard, createCardRecurring, listCards, reorderCards, createCardBill, createCharge, createPlan, refreshCardBills, setCardPaid } from './cardRepo'
 import { openMemoryDatabase, type Db } from './connection'
 import { DEFAULT_CATEGORIES } from './defaults'
+import { createRecurring, ensureRecurringForMonth } from './recurringRepo'
 import { createTransaction, getTransaction, listMonth, removeTransaction } from './transactionRepo'
 
 const TODAY = '2026-10-29'
@@ -136,16 +137,35 @@ describe('card analytics', () => {
     expect(a.spending[0]!.name).toBe('อาหาร') // biggest first
   })
 
-  it('bars: what the partner owes per month (by due date) and what they have transferred', () => {
+  it('monthly report: six months ending at the viewed one, each split into card / instalment / repeating / other with our share only', () => {
     const c = card()
-    charge(c.id, 60_000, 60_000)
-    expect(cardAnalytics(db, '2026-11', TODAY).partnerMonths.at(-1)).toEqual({ month: '2026-11', owedSatang: 60_000, paidSatang: 0 })
-    setPartnerPaid(db, c.id, '2026-10', true, TODAY)
+    charge(c.id, 100_000, 0, 'อาหาร') // hand-typed card spending, ours
+    charge(c.id, 60_000, 60_000, 'ช้อปปิ้ง') // partner pays everything: not in our report at all
+    createCardRecurring(db, { cardId: c.id, title: 'ค่าไฟ', category: 'ค่าน้ำค่าไฟ', amountSatang: 80_000, partnerSatang: 30_000, dayOfMonth: 5, startMonth: '2026-10', endMonth: null, note: '', isActive: true })
+    createPlan(db, { cardId: c.id, title: 'phone', totalMonths: 10, monthlySatang: 150_000, partnerSatang: 50_000, startMonth: '2026-08', note: '' })
+    createTransaction(db, { kind: 'expense', title: 'rent', amountSatang: 500_000, categoryId: food.id, paymentMethodId: null, txnDate: '2026-11-01', dueDate: null, isPaid: true, note: '' }, TODAY)
+    createRecurring(db, { kind: 'expense', title: 'net', amountSatang: 60_000, categoryId: food.id, paymentMethodId: null, dayOfMonth: 2, startMonth: '2026-11', endMonth: null, note: '', isActive: true })
+    ensureRecurringForMonth(db, '2026-11')
+
     const a = cardAnalytics(db, '2026-11', TODAY)
-    expect(a.partnerMonths).toHaveLength(6)
-    expect(a.partnerMonths.at(-1)).toEqual({ month: '2026-11', owedSatang: 60_000, paidSatang: 60_000 })
-    expect(a.partnerMonths[0]!.month).toBe('2026-06')
-    expect(a.partnerMonths.slice(0, -1).every((m) => m.owedSatang === 0 || m.month === '2026-11')).toBe(true)
+    expect(a.months).toHaveLength(6)
+    expect(a.months[0]!.month).toBe('2026-06')
+    const nov = a.months.at(-1)!
+    const by = Object.fromEntries(nov.sources.map((s) => [s.source, s.totalSatang]))
+    expect(by['card']).toBe(100_000)
+    expect(by['installment']).toBe(100_000) // 1,500 − partner 500
+    expect(by['recurring']).toBe(50_000 + 60_000) // card rule's our share (800 − 300) + the Recurring-page item
+    expect(by['other']).toBe(500_000)
+    expect(nov.totalSatang).toBe(100_000 + 100_000 + 110_000 + 500_000)
+    expect(nov.sources.map((s) => s.source)).toEqual(['card', 'installment', 'recurring', 'other'])
+    // instalments are listed by plan name, the card rule by category
+    expect(nov.sources[1]!.items.map((i) => i.name)).toEqual(['phone'])
+    expect(nov.sources[2]!.items.map((i) => i.name).sort()).toEqual([food.name, 'ค่าน้ำค่าไฟ'].sort())
+    // the category view of the same money adds up to the same total, and the partner-only category is gone
+    expect(nov.categories.reduce((s, x) => s + x.totalSatang, 0)).toBe(nov.totalSatang)
+    expect(nov.categories.some((x) => x.name === 'ช้อปปิ้ง')).toBe(false)
+    expect(a.spendingTotal).toBe(nov.totalSatang)
+    expect(a.months.slice(0, -1).every((m) => m.totalSatang === 0 || m.month >= '2026-09')).toBe(true)
   })
 
   it('folds a long tail of small slices into one "อื่น ๆ" slice', () => {
